@@ -90,24 +90,6 @@ server <- function(input, output, session) {
              yaxis = list(title = "Proportion"))
   })
   
-  output$retinaPlot <- renderPlotly({
-    req(values$retina_results)
-    plot_data <- values$retina_results$cell.type.proportions
-    plot_ly(type = "bar", x = rownames(plot_data), y = as.numeric(plot_data[,1])) %>%
-      layout(title = "Retina Cell Type Proportions",
-             xaxis = list(title = "Cell Types"),
-             yaxis = list(title = "Proportion"))
-  })
-  
-  output$hgscPlot <- renderPlotly({
-    req(values$hgsc_results)
-    plot_data <- values$hgsc_results$cell.type.proportions
-    plot_ly(type = "bar", x = rownames(plot_data), y = as.numeric(plot_data[,1])) %>%
-      layout(title = "HGSC Cell Type Proportions",
-             xaxis = list(title = "Cell Types"),
-             yaxis = list(title = "Proportion"))
-  })
-  
   # Table renderers
   output$customTable <- renderDT({
     req(values$custom_results)
