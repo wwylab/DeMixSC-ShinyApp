@@ -60,8 +60,8 @@ ui <- fluidPage(
                       )
              ),
              
-             # Custom Analysis tab
-             tabPanel("Custom Analysis",
+             # User-defined Analysis tab
+             tabPanel("User-defined Analysis",
                       sidebarLayout(
                         sidebarPanel(
                           tags$div(
@@ -85,8 +85,8 @@ ui <- fluidPage(
                       )
              ),
              
-             # Package Data tab
-             tabPanel("Package Data",
+             # Pre-defined Analysis module
+             tabPanel("Pre-Defined Analysis",
                       tags$div(
                         tabsetPanel(
                           tabPanel("Retina",
@@ -102,7 +102,6 @@ ui <- fluidPage(
                                                         "Download Results")
                                        ),
                                        mainPanel(
-                                         plotlyOutput("retinaPlot"),
                                          DTOutput("retinaTable")
                                        )
                                      )
@@ -121,7 +120,6 @@ ui <- fluidPage(
                                                         "Download Results")
                                        ),
                                        mainPanel(
-                                         plotlyOutput("hgscPlot"),
                                          DTOutput("hgscTable")
                                        )
                                      )
