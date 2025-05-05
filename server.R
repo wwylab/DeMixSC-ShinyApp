@@ -50,41 +50,6 @@ server <- function(input, output, session) {
     is_processing = FALSE
   )
   
-  # File upload handlers 
-  observeEvent(input$countsFile, {
-    req(input$countsFile)
-    tryCatch({
-      values$counts <- read.csv(input$countsFile$datapath, row.names=1)
-      if (ncol(values$counts) < 1 || nrow(values$counts) < 1) {
-        showNotification("Count matrix appears to be empty or incorrectly formatted.", type = "error")
-        values$counts <- NULL
-      } else {
-        showNotification("Count matrix loaded successfully!", type = "message")
-      }
-    }, error = function(e) {
-      showNotification(paste("Error loading count matrix:", e$message), type = "error")
-      values$counts <- NULL
-    })
-    values$data_uploaded <- !is.null(values$counts) && !is.null(values$annotations)
-  })
-  
-  observeEvent(input$annotFile, {
-    req(input$annotFile)
-    tryCatch({
-      values$annotations <- read.csv(input$annotFile$datapath)
-      if (ncol(values$annotations) < 2 || nrow(values$annotations) < 1) {
-        showNotification("Annotation file appears to be empty or incorrectly formatted.", type = "error")
-        values$annotations <- NULL
-      } else {
-        showNotification("Annotation file loaded successfully!", type = "message")
-      }
-    }, error = function(e) {
-      showNotification(paste("Error loading annotations:", e$message), type = "error")
-      values$annotations <- NULL
-    })
-    values$data_uploaded <- !is.null(values$counts) && !is.null(values$annotations)
-  })
-  
   # For user-defined analysis, additional file uploaders
   observeEvent(input$referenceFile, {
     req(input$referenceFile)
@@ -116,77 +81,6 @@ server <- function(input, output, session) {
     }, error = function(e) {
       showNotification(paste("Error loading benchmark pseudobulk file:", e$message), type = "error")
       values$mat_b <- NULL
-    })
-  })
-  
-  # Example data loader
-  observeEvent(input$loadExampleData, {
-    if (input$exampleDataset == "Retina") {
-      tryCatch({
-        values$counts <- get("retina_amd_cohort_raw_counts", envir = asNamespace("DeMixSC"))
-        values$annotations <- data.frame(
-          sample_id = colnames(values$counts),
-          mgs_level = sample(c(1, 2, 3, 4), ncol(values$counts), replace = TRUE)
-        )
-        values$data_uploaded <- TRUE
-        showNotification("Example Retina dataset loaded successfully!", type = "message")
-      }, error = function(e) {
-        showNotification(paste("Error loading example data:", e$message), type = "error")
-      })
-    } else if (input$exampleDataset == "HGSC") {
-      tryCatch({
-        values$counts <- get("hgsc_lee_cohort_raw_counts", envir = asNamespace("DeMixSC"))
-        values$annotations <- data.frame(
-          sample_id = colnames(values$counts),
-          response = sample(c("R0", "ER", "PR"), ncol(values$counts), replace = TRUE)
-        )
-        values$data_uploaded <- TRUE
-        showNotification("Example HGSC dataset loaded successfully!", type = "message")
-      }, error = function(e) {
-        showNotification(paste("Error loading example data:", e$message), type = "error")
-      })
-    }
-  })
-  
-  # Analysis handlers with improved error handling and progress updates
-  observeEvent(input$runAnalysis, {
-    req(values$counts)
-    values$is_processing <- TRUE
-    values$error_message <- NULL
-    
-    shinyjs::disable("runAnalysis")
-    
-    withProgress(message = 'Running DeMixSC analysis...', value = 0, {
-      tryCatch({
-        min_expr <- as.numeric(input$minExpression)
-        scale_factor <- as.numeric(input$scaleFactor)
-        adj_p <- as.numeric(input$adjpCutoff)
-        log2fc <- as.numeric(input$log2fcCutoff)
-        top_genes <- as.numeric(input$topRankedGenes)
-        
-        n_cores <- min(detectCores() - 1, 1)
-        
-        # Run DeMixSC 
-        values$custom_results <- DeMixSC(
-          option = "user.defined",
-          benchmark.mode = FALSE,
-          mat.target = values$counts,
-          min.expression = min_expr,
-          scale.factor = scale_factor,
-          adjp.cutoff = adj_p,
-          log2fc.cutoff = log2fc,
-          top.ranked.genes = top_genes,
-          nthread = n_cores
-        )
-        values$custom_analysis_complete <- TRUE
-        showNotification("Analysis completed successfully!", type = "message")
-      }, error = function(e) {
-        values$error_message <- paste("Error in analysis:", e$message)
-        showNotification(values$error_message, type = "error")
-      }, finally = {
-        values$is_processing <- FALSE
-        shinyjs::enable("runAnalysis")
-      })
     })
   })
   
@@ -286,42 +180,6 @@ server <- function(input, output, session) {
         shinyjs::enable("runHGSC")
       })
     })
-  })
-  
-  # Output renderers for plots and tables
-  output$customPlot <- renderPlotly({
-    req(values$custom_results)
-    plot_data <- values$custom_results$cell.type.proportions
-    
-    if (!is.null(plot_data) && ncol(plot_data) > 0 && nrow(plot_data) > 0) {
-      if (ncol(plot_data) > 10) {
-        plot_data <- plot_data[, 1:10]
-      }
-      
-      plot_df <- data.frame(
-        CellType = rownames(plot_data),
-        stringsAsFactors = FALSE
-      )
-      
-      for (i in 1:ncol(plot_data)) {
-        plot_df[[colnames(plot_data)[i]]] <- plot_data[, i]
-      }
-      
-      plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
-      
-      p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, type = "bar") %>%
-        layout(title = "Cell Type Proportions",
-               xaxis = list(title = "Cell Types", tickangle = 45),
-               yaxis = list(title = "Proportion"),
-               barmode = "group")
-      
-      return(p)
-    } else {
-      plot_ly() %>% 
-        layout(title = "No valid data available for plotting",
-               xaxis = list(title = ""),
-               yaxis = list(title = ""))
-    }
   })
   
   output$retinaPlot <- renderPlotly({
@@ -452,29 +310,6 @@ server <- function(input, output, session) {
              yaxis = list(title = ""))
   })
   
-  # Table renderers 
-  output$customTable <- renderDT({
-    req(values$custom_results)
-    dt <- datatable(
-      round(t(values$custom_results$cell.type.proportions), 4),
-      options = list(
-        scrollX = TRUE,
-        pageLength = 10,
-        lengthMenu = c(5, 10, 15, 20)
-      ),
-      rownames = TRUE,
-      caption = "Cell Type Proportions (rounded to 4 decimal places)"
-    ) %>%
-      formatStyle(
-        columns = colnames(t(values$custom_results$cell.type.proportions)),
-        background = styleColorBar(c(0, 1), 'lightblue'),
-        backgroundSize = '100% 90%',
-        backgroundRepeat = 'no-repeat',
-        backgroundPosition = 'center'
-      )
-    return(dt)
-  })
-  
   output$retinaTable <- renderDT({
     req(values$retina_results)
     
@@ -578,15 +413,6 @@ server <- function(input, output, session) {
       return(dt)
     }
   })
-  
-  # Download handlers with file naming
-  output$downloadCustomResults <- downloadHandler(
-    filename = function() paste0("custom-demixsc-results-", format(Sys.time(), "%Y%m%d-%H%M%S"), ".csv"),
-    content = function(file) {
-      req(values$custom_results)
-      write.csv(values$custom_results$cell.type.proportions, file)
-    }
-  )
   
   output$downloadRetinaResults <- downloadHandler(
     filename = function() {
