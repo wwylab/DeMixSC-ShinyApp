@@ -25,32 +25,32 @@ for (pkg in required_packages) {
   check_and_install(pkg)
 }
 
-tryCatch({
-  check_and_install("DeMixSC")
-}, error = function(e) {
-  message("Could not install DeMixSC. Please install manually using devtools::install_github('wwylab/DeMixSC')")
-})
-
 server <- function(input, output, session) {
   values <- reactiveValues(
     data_uploaded = FALSE,
     custom_analysis_complete = FALSE,
     retina_analysis_complete = FALSE,
     hgsc_analysis_complete = FALSE,
+    retina_predefined_analysis_complete = FALSE,
+    hgsc_predefined_analysis_complete = FALSE,
     custom_results = NULL,
     retina_results = NULL,
     hgsc_results = NULL,
+    retina_predefined_results = NULL,
+    hgsc_predefined_results = NULL,
     counts = NULL,
     annotations = NULL,
     reference = NULL,
     mat_a = NULL,
     mat_b = NULL,
     target_bulk = NULL,
+    retina_target = NULL,
+    hgsc_target = NULL,
     error_message = NULL,
     is_processing = FALSE
   )
   
-  # For user-defined analysis, additional file uploaders
+  # For user-defined analysis
   observeEvent(input$referenceFile, {
     req(input$referenceFile)
     tryCatch({
@@ -84,6 +84,30 @@ server <- function(input, output, session) {
     })
   })
   
+  # Upload handlers for predefined analysis
+  observeEvent(input$retinaTargetFile, {
+    req(input$retinaTargetFile)
+    tryCatch({
+      values$retina_target <- read.csv(input$retinaTargetFile$datapath, row.names=1)
+      showNotification("Retina target bulk file loaded successfully!", type = "message")
+    }, error = function(e) {
+      showNotification(paste("Error loading retina target bulk file:", e$message), type = "error")
+      values$retina_target <- NULL
+    })
+  })
+  
+  observeEvent(input$hgscTargetFile, {
+    req(input$hgscTargetFile)
+    tryCatch({
+      values$hgsc_target <- read.csv(input$hgscTargetFile$datapath, row.names=1)
+      showNotification("HGSC target bulk file loaded successfully!", type = "message")
+    }, error = function(e) {
+      showNotification(paste("Error loading HGSC target bulk file:", e$message), type = "error")
+      values$hgsc_target <- NULL
+    })
+  })
+  
+  # Run example retina analysis
   observeEvent(input$runRetina, {
     values$is_processing <- TRUE
     values$error_message <- NULL
@@ -133,6 +157,7 @@ server <- function(input, output, session) {
     })
   })
   
+  # Run example HGSC analysis
   observeEvent(input$runHGSC, {
     values$is_processing <- TRUE
     values$error_message <- NULL
@@ -182,6 +207,85 @@ server <- function(input, output, session) {
     })
   })
   
+  # Run pre-defined analysis for Retina with user upload
+  observeEvent(input$runRetinaPredefined, {
+    req(values$retina_target)
+    
+    values$is_processing <- TRUE
+    values$error_message <- NULL
+    
+    shinyjs::disable("runRetinaPredefined")
+    
+    withProgress(message = 'Analyzing your Retina data...', value = 0, {
+      tryCatch({
+        reference = get("retina_consensus_reference", envir = asNamespace("DeMixSC"))
+        benchmark_bulk = get("retina_benchmark_bulk_batch1", envir = asNamespace("DeMixSC"))
+        benchmark_pseudobulk = get("retina_benchmark_pseudobulk_batch1", envir = asNamespace("DeMixSC"))
+        
+        values$retina_predefined_results <- DeMixSC(
+          option = "user.defined",
+          benchmark.mode = FALSE,
+          reference = reference,
+          mat.a = benchmark_bulk,
+          mat.b = benchmark_pseudobulk,
+          mat.target = values$retina_target,
+          min.expression = input$retinaMinExpression,
+          scale.factor = input$retinaScaleFactor,
+          top.ranked.genes = input$retinaTopGenes,
+          nthread = min(detectCores() - 1, 1)
+        )
+        values$retina_predefined_analysis_complete <- TRUE
+        showNotification("Retina analysis of your data completed successfully!", type = "message")
+      }, error = function(e) {
+        values$error_message <- paste("Error in Retina analysis:", e$message)
+        showNotification(values$error_message, type = "error")
+      }, finally = {
+        values$is_processing <- FALSE
+        shinyjs::enable("runRetinaPredefined")
+      })
+    })
+  })
+  
+  # Run pre-defined analysis for HGSC with user upload
+  observeEvent(input$runHGSCPredefined, {
+    req(values$hgsc_target)
+    
+    values$is_processing <- TRUE
+    values$error_message <- NULL
+    
+    shinyjs::disable("runHGSCPredefined")
+    
+    withProgress(message = 'Analyzing your HGSC data...', value = 0, {
+      tryCatch({
+        reference = get("hgsc_consensus_reference", envir = asNamespace("DeMixSC"))
+        benchmark_bulk = get("hgsc_benchmark_bulk", envir = asNamespace("DeMixSC"))
+        benchmark_pseudobulk = get("hgsc_benchmark_pseudobulk", envir = asNamespace("DeMixSC"))
+        
+        values$hgsc_predefined_results <- DeMixSC(
+          option = "user.defined",
+          benchmark.mode = FALSE,
+          reference = reference,
+          mat.a = benchmark_bulk,
+          mat.b = benchmark_pseudobulk,
+          mat.target = values$hgsc_target,
+          min.expression = input$hgscMinExpression,
+          scale.factor = input$hgscScaleFactor,
+          top.ranked.genes = input$hgscTopGenes,
+          nthread = min(detectCores() - 1, 1)
+        )
+        values$hgsc_predefined_analysis_complete <- TRUE
+        showNotification("HGSC analysis of your data completed successfully!", type = "message")
+      }, error = function(e) {
+        values$error_message <- paste("Error in HGSC analysis:", e$message)
+        showNotification(values$error_message, type = "error")
+      }, finally = {
+        values$is_processing <- FALSE
+        shinyjs::enable("runHGSCPredefined")
+      })
+    })
+  })
+  
+  # Example Retina plots and tables
   output$retinaPlot <- renderPlotly({
     req(values$retina_results)
     
@@ -310,6 +414,83 @@ server <- function(input, output, session) {
              yaxis = list(title = ""))
   })
   
+  # Predefined analysis plots
+  output$retinaPredefinedPlot <- renderPlotly({
+    req(values$retina_predefined_results)
+    
+    plot_data <- values$retina_predefined_results$cell.type.proportions
+    
+    if (!is.null(plot_data) && ncol(plot_data) > 0 && nrow(plot_data) > 0) {
+      if (ncol(plot_data) > 20) {
+        sampled_cols <- sample(1:ncol(plot_data), 20)
+        plot_data <- plot_data[, sampled_cols]
+      }
+      
+      plot_df <- data.frame(
+        CellType = rownames(plot_data),
+        stringsAsFactors = FALSE
+      )
+      
+      for (i in 1:ncol(plot_data)) {
+        plot_df[[colnames(plot_data)[i]]] <- plot_data[, i]
+      }
+      
+      plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
+      
+      p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, type = "bar") %>%
+        layout(title = "Retina Cell Type Proportions in Your Data",
+               xaxis = list(title = "Cell Types", tickangle = 45),
+               yaxis = list(title = "Proportion"),
+               barmode = "group")
+      
+      return(p)
+    }
+    
+    plot_ly() %>% 
+      layout(title = "No valid data available for plotting",
+             xaxis = list(title = ""),
+             yaxis = list(title = ""))
+  })
+  
+  output$hgscPredefinedPlot <- renderPlotly({
+    req(values$hgsc_predefined_results)
+    
+    plot_data <- values$hgsc_predefined_results$cell.type.proportions
+    
+    if (!is.null(plot_data) && ncol(plot_data) > 0 && nrow(plot_data) > 0) {
+      if (ncol(plot_data) > 20) {
+        set.seed(123) 
+        sampled_cols <- sample(1:ncol(plot_data), 20)
+        plot_data <- plot_data[, sampled_cols]
+      }
+      
+      plot_df <- data.frame(
+        CellType = rownames(plot_data),
+        stringsAsFactors = FALSE
+      )
+      
+      for (i in 1:ncol(plot_data)) {
+        plot_df[[colnames(plot_data)[i]]] <- plot_data[, i]
+      }
+      
+      plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
+      
+      p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, type = "bar") %>%
+        layout(title = "HGSC Cell Type Proportions in Your Data",
+               xaxis = list(title = "Cell Types", tickangle = 45),
+               yaxis = list(title = "Proportion"),
+               barmode = "group")
+      
+      return(p)
+    }
+    
+    plot_ly() %>% 
+      layout(title = "No valid data available for plotting",
+             xaxis = list(title = ""),
+             yaxis = list(title = ""))
+  })
+  
+  # Example data tables
   output$retinaTable <- renderDT({
     req(values$retina_results)
     
@@ -322,7 +503,7 @@ server <- function(input, output, session) {
           lengthMenu = c(5, 10, 15, 20)
         ),
         rownames = TRUE,
-        caption = "Retina Cell Type Proportions (rounded to 4 decimal places)"
+        caption = "Retina Cell Type Proportions"
       ) %>%
         formatStyle(
           columns = colnames(t(values$retina_results$cell.type.proportions)),
@@ -349,7 +530,7 @@ server <- function(input, output, session) {
           lengthMenu = c(5, 10, 15, 20)
         ),
         rownames = TRUE,
-        caption = "Retina Benchmark Results (rounded to 4 decimal places)"
+        caption = "Retina Benchmark Results"
       ) %>%
         formatStyle(
           columns = setdiff(colnames(combined), "Source"),
@@ -374,7 +555,7 @@ server <- function(input, output, session) {
           lengthMenu = c(5, 10, 15, 20)
         ),
         rownames = TRUE,
-        caption = "HGSC Cell Type Proportions (rounded to 4 decimal places)"
+        caption = "HGSC Cell Type Proportions"
       ) %>%
         formatStyle(
           columns = colnames(t(values$hgsc_results$cell.type.proportions)),
@@ -414,6 +595,54 @@ server <- function(input, output, session) {
     }
   })
   
+  # Predefined analysis tables
+  output$retinaPredefinedTable <- renderDT({
+    req(values$retina_predefined_results)
+    
+    dt <- datatable(
+      round(t(values$retina_predefined_results$cell.type.proportions), 4),
+      options = list(
+        scrollX = TRUE,
+        pageLength = 10,
+        lengthMenu = c(5, 10, 15, 20)
+      ),
+      rownames = TRUE,
+      caption = "Retina Cell Type Proportions in Your Data"
+    ) %>%
+      formatStyle(
+        columns = colnames(t(values$retina_predefined_results$cell.type.proportions)),
+        background = styleColorBar(c(0, 1), 'lightblue'),
+        backgroundSize = '100% 90%',
+        backgroundRepeat = 'no-repeat',
+        backgroundPosition = 'center'
+      )
+    return(dt)
+  })
+  
+  output$hgscPredefinedTable <- renderDT({
+    req(values$hgsc_predefined_results)
+    
+    dt <- datatable(
+      round(t(values$hgsc_predefined_results$cell.type.proportions), 4),
+      options = list(
+        scrollX = TRUE,
+        pageLength = 10,
+        lengthMenu = c(5, 10, 15, 20)
+      ),
+      rownames = TRUE,
+      caption = "HGSC Cell Type Proportions in Your Data"
+    ) %>%
+      formatStyle(
+        columns = colnames(t(values$hgsc_predefined_results$cell.type.proportions)),
+        background = styleColorBar(c(0, 1), 'lightblue'),
+        backgroundSize = '100% 90%',
+        backgroundRepeat = 'no-repeat',
+        backgroundPosition = 'center'
+      )
+    return(dt)
+  })
+  
+  # Download handlers
   output$downloadRetinaResults <- downloadHandler(
     filename = function() {
       if (input$retinaDataset == "AMD Cohort") {
@@ -458,7 +687,28 @@ server <- function(input, output, session) {
     }
   )
   
-  # Display error messages
+  # Download handlers for predefined analysis results
+  output$downloadRetinaPredefinedResults <- downloadHandler(
+    filename = function() {
+      paste0("retina-custom-demixsc-results-", format(Sys.time(), "%Y%m%d-%H%M%S"), ".csv")
+    },
+    content = function(file) {
+      req(values$retina_predefined_results)
+      write.csv(values$retina_predefined_results$cell.type.proportions, file)
+    }
+  )
+  
+  output$downloadHGSCPredefinedResults <- downloadHandler(
+    filename = function() {
+      paste0("hgsc-custom-demixsc-results-", format(Sys.time(), "%Y%m%d-%H%M%S"), ".csv")
+    },
+    content = function(file) {
+      req(values$hgsc_predefined_results)
+      write.csv(values$hgsc_predefined_results$cell.type.proportions, file)
+    }
+  )
+  
+  # Error messages
   output$errorDisplay <- renderUI({
     if (!is.null(values$error_message)) {
       div(
@@ -469,13 +719,55 @@ server <- function(input, output, session) {
     }
   })
   
-  # Show processing indicator
+  # Error displays for predefined analysis
+  output$errorDisplayRetinaPredefined <- renderUI({
+    if (!is.null(values$error_message)) {
+      div(
+        style = "color: red; background-color: #ffeeee; padding: 10px; border-radius: 5px; margin-top: 10px;",
+        icon("exclamation-triangle"),
+        p(values$error_message)
+      )
+    }
+  })
+  
+  output$errorDisplayHGSCPredefined <- renderUI({
+    if (!is.null(values$error_message)) {
+      div(
+        style = "color: red; background-color: #ffeeee; padding: 10px; border-radius: 5px; margin-top: 10px;",
+        icon("exclamation-triangle"),
+        p(values$error_message)
+      )
+    }
+  })
+  
+  # Processing indicator
   output$processingIndicator <- renderUI({
     if (values$is_processing) {
       div(
         style = "text-align: center; margin-top: 20px;",
         spin_flower(),
         p("Processing... This may take a few minutes.")
+      )
+    }
+  })
+  
+  # Processing indicators for predefined analysis
+  output$processingIndicatorRetinaPredefined <- renderUI({
+    if (values$is_processing) {
+      div(
+        style = "text-align: center; margin-top: 20px;",
+        spin_flower(),
+        p("Processing your retina data... This may take a few minutes.")
+      )
+    }
+  })
+  
+  output$processingIndicatorHGSCPredefined <- renderUI({
+    if (values$is_processing) {
+      div(
+        style = "text-align: center; margin-top: 20px;",
+        spin_flower(),
+        p("Processing your HGSC data... This may take a few minutes.")
       )
     }
   })
