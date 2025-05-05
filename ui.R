@@ -5,6 +5,9 @@ library(DT)
 library(shinyWidgets)
 
 ui <- fluidPage(
+  tags$head(
+    tags$title("DeMixSC: Cell Type Deconvolution Framework")
+  ),
   shinyjs::useShinyjs(),
   
   tags$head(
@@ -56,13 +59,12 @@ ui <- fluidPage(
   ),
   
   div(class = "title-panel",
-      titlePanel("DeMixSC-on-Web: Cell Type Deconvolution Framework"),
+      h1("DeMixSC-on-Web"),
       p("A deconvolution framework using single-cell sequencing plus benchmark datasets for accurate analysis of cell type ratios")
   ),
   
   navbarPage(
-    title = div(
-    ),
+    title = "",
     id = "navBar",
     
     # About tab
@@ -81,16 +83,18 @@ ui <- fluidPage(
                           
                           h3("How it Works"),
                           tags$ul(
-                            tags$li(strong("Input: "), "The algorithm requires a count matrix and cell type annotations. For benchmark-based deconvolution, it also utilizes a paired benchmark of bulk and pseudobulk RNA-seq data."),
+                            tags$li(strong("Input: "), "The algorithm requires a count matrix and cell type annotations. For benchmark-based deconvolution, it also utilizes a paired benchmark of bulk and pseudobulk 
+                                    
+                                    RNA-seq data."),
                             tags$li(strong("Processing: "), "DeMixSC identifies and weights genes based on technological discrepancy between single-cell and bulk RNA-seq data."),
                             tags$li(strong("Output: "), "Cell type proportions for your samples, visualized with interactive charts and downloadable as CSV files.")
                           ),
                           
                           h3("Available Analysis Modules"),
                           tags$ul(
-                            tags$li(strong("Pre-defined Analysis"), " - Uses built-in reference datasets for retina or HGSC (High-Grade Serous Ovarian Carcinoma)."),
-                            tags$li(strong("Custom Analysis"), " - Upload your own data for a customized analysis."),
-                            tags$li(strong("Example Data"), " - Try out the app with included example datasets.")
+                            tags$li(strong("Example Analysis"), " - Run analysis with built-in cohorts (AMD retina and HGSC Lee cohort) included in the package."),
+                            tags$li(strong("Pre-defined Analysis"), " - Use built-in reference datasets for retina or HGSC, but upload your own target bulk data."),
+                            tags$li(strong("User-defined Analysis"), " - Upload your own data for a fully customized analysis.")
                           ),
                           
                           h4("Contact Information"),
@@ -99,7 +103,8 @@ ui <- fluidPage(
                           p("Quang Tran - ", a(href="mailto:qmtran@mdanderson.org", "qmtran@mdanderson.org")),
                           
                           h4("Citation"),
-                          p("Guo, S., Liu, X., Cheng, X., Jiang, Y., Ji, S., Liang, Q., … & Wang, W. (2023). The DeMixSC deconvolution framework uses single-cell sequencing plus a small benchmark dataset for improved analysis of cell-type ratios in complex tissue samples."),
+                          p("Guo, S., Liu, X., Cheng, X., Jiang, Y., Ji, S., Liang, Q., … & Wang, W. (2023). The DeMixSC deconvolution framework uses single-cell sequencing plus a small benchmark dataset for 
+                            improved analysis of cell-type ratios in complex tissue samples."),
                           a(href="https://genome.cshlp.org/content/early/2024/11/22/gr.278822.123.abstract",
                             "https://genome.cshlp.org/content/early/2024/11/22/gr.278822.123.abstract")
                       )
@@ -117,20 +122,23 @@ ui <- fluidPage(
                           h4("Step 1: Choose your analysis type"),
                           p("Select the type of analysis you want to perform:"),
                           tags$ul(
-                            tags$li(strong("Pre-loaded Reference Data:"), " Use the 'Package Data' tab to run analysis with built-in retina or HGSC datasets"),
-                            tags$li(strong("Custom Analysis:"), " Use the 'Custom Analysis' tab to upload and analyze your own data")
+                            tags$li(strong("Example Analysis:"), " Use the 'Example Analysis' tab to run analysis with built-in cohorts (AMD and HGSC)"),
+                            tags$li(strong("Pre-defined Analysis:"), " Use the 'Pre-defined Analysis' tab to upload your target bulk data and use built-in reference datasets"),
+                            tags$li(strong("User-defined Analysis:"), " Use the 'User-defined Analysis' tab to upload and analyze your own benchmark data")
                           ),
                           
-                          h4("Step 2: Load your data or use example data"),
-                          p("If using custom analysis:"),
+                          h4("Step 2: Select a dataset or prepare your files"),
                           tags$ul(
-                            tags$li("Upload your count matrix (genes × samples) in CSV format with gene names as the first column"),
-                            tags$li("Upload your cell type annotations file"),
-                            tags$li("Or click 'Load Example Data' to try with a pre-loaded dataset")
+                            tags$li("For Example Analysis: Simply select 'Retina' or 'HGSC' and choose a dataset type"),
+                            tags$li("For Pre-defined Analysis: Upload your target bulk data in CSV format with genes as rows"),
+                            tags$li("For User-defined Analysis: Prepare your reference matrix, benchmark bulk, and benchmark pseudo-bulk files in CSV format")
                           ),
                           
-                          h4("Step 3: Set parameters and run analysis"),
-                          p("Adjust parameters such as minimum expression threshold and scale factor, then click 'Run Analysis'"),
+                          h4("Step 3: Run the analysis"),
+                          tags$ul(
+                            tags$li("Click the 'Run Analysis' button for the selected dataset"),
+                            tags$li("The analysis may take a few minutes to complete")
+                          ),
                           
                           h4("Step 4: View and download results"),
                           p("After analysis completes:"),
@@ -144,14 +152,17 @@ ui <- fluidPage(
                           
                           h4("Supported File Formats"),
                           tags$ul(
-                            tags$li(strong("Count Matrix:"), " CSV with genes in rows, samples in columns, gene names as first column"),
-                            tags$li(strong("Annotations:"), " CSV with sample identifiers and corresponding metadata")
+                            tags$li(strong("Target Bulk:"), " CSV with genes in rows and samples in columns"),
+                            tags$li(strong("Reference Matrix:"), " CSV with genes in rows and cell types in columns"),
+                            tags$li(strong("Benchmark Bulk:"), " CSV with genes in rows and samples in columns"),
+                            tags$li(strong("Benchmark Pseudo-bulk"), " CSV with genes in rows and samples in columns")
                           ),
                           
                           h4("Example Usage Scenario"),
                           p("A researcher has bulk RNA-seq data from retina samples and wants to estimate the proportions of different cell types:"),
                           tags$ol(
-                            tags$li("Go to 'Package Data' tab and select 'Retina' and 'AMD Cohort'"),
+                            tags$li("Go to 'Pre-defined Analysis' tab and select 'Retina'"),
+                            tags$li("Upload your bulk RNA-seq data file"),
                             tags$li("Click 'Run Analysis' and wait for processing to complete"),
                             tags$li("View the cell type proportion results and download for further analysis")
                           ),
@@ -162,7 +173,7 @@ ui <- fluidPage(
     ),
     
     # Example tab
-    tabPanel("Example",
+    tabPanel("Example Analysis",
              tabsetPanel(
                tabPanel("Retina",
                         sidebarLayout(
@@ -193,11 +204,9 @@ ui <- fluidPage(
                           mainPanel(
                             width = 9,
                             div(class = "result-box",
-                                # Processing indicator and error messages
                                 uiOutput("processingIndicator"),
                                 uiOutput("errorDisplay"),
                                 
-                                # Results visualization
                                 h3("Retina Analysis Results"),
                                 p("Cell type proportions in retinal tissue:"),
                                 
@@ -273,11 +282,9 @@ ui <- fluidPage(
                           mainPanel(
                             width = 9,
                             div(class = "result-box",
-                                # Processing indicator and error messages
                                 uiOutput("processingIndicator"),
                                 uiOutput("errorDisplay"),
                                 
-                                # Results visualization
                                 h3("HGSC Analysis Results"),
                                 p("Cell type proportions in high-grade serous ovarian carcinoma:"),
                                 
@@ -325,6 +332,182 @@ ui <- fluidPage(
              )
     ),
     
+    # Pre-defined Analysis
+    tabPanel("Pre-defined Analysis",
+             tabsetPanel(
+               tabPanel("Retina",
+                        sidebarLayout(
+                          sidebarPanel(
+                            width = 3,
+                            div(class = "param-box",
+                                h4("Retina Analysis"),
+                        
+                                fileInput("retinaTargetFile", "Upload Target Bulk RNA-seq (CSV):", 
+                                          accept = c(".csv", ".txt")),
+                                
+                                numericInput("retinaMinExpression", "Minimum Expression:", 3, 
+                                             min = 1, max = 10),
+                                numericInput("retinaScaleFactor", "Scale Factor:", 1e5, 
+                                             min = 1e4, max = 1e6),
+                                numericInput("retinaTopGenes", "Top Ranked Genes:", 1500, 
+                                             min = 500, max = 10000),
+                                
+                                hr(),
+                                
+                                actionButton("runRetinaPredefined", "Run Analysis", 
+                                             class = "btn-primary btn-block"),
+                                
+                                br(),
+                                downloadButton("downloadRetinaPredefinedResults", 
+                                               "Download Results", 
+                                               class = "btn-success btn-block")
+                            )
+                          ),
+                          mainPanel(
+                            width = 9,
+                            div(class = "result-box",
+                                uiOutput("processingIndicatorRetinaPredefined"),
+                                uiOutput("errorDisplayRetinaPredefined"),
+                                
+                                h3("Retina Analysis Results"),
+                                p("Cell type proportions in your retinal tissue samples:"),
+                                
+                                tabsetPanel(
+                                  tabPanel("Chart",
+                                           plotlyOutput("retinaPredefinedPlot", height = "500px")
+                                  ),
+                                  tabPanel("Table",
+                                           DTOutput("retinaPredefinedTable")
+                                  ),
+                                  tabPanel("Documentation",
+                                           h4("About Retina Predefined Analysis"),
+                                           p("This analysis module allows you to use the pre-built retina reference dataset with your own target bulk data."),
+                                           
+                                           h4("How It Works"),
+                                           p("The app uses:"),
+                                           tags$ul(
+                                             tags$li("Pre-built consensus reference matrix from healthy retinal tissue"),
+                                             tags$li("Benchmark retina dataset to calibrate the deconvolution"),
+                                             tags$li("Your uploaded bulk RNA-seq data as the target for deconvolution")
+                                           ),
+                                           
+                                           h4("Cell Types"),
+                                           p("Major cell types in the analysis include:"),
+                                           tags$ul(
+                                             tags$li("AC: Amacrine cells"),
+                                             tags$li("BC: Bipolar cells"),
+                                             tags$li("Cone: Cone photoreceptors"),
+                                             tags$li("HC: Horizontal cells"),
+                                             tags$li("MG: Müller glia"),
+                                             tags$li("RGC: Retinal ganglion cells"),
+                                             tags$li("Rod: Rod photoreceptors"),
+                                             tags$li("Astrocyte: Astrocytes"),
+                                             tags$li("Microglia: Microglial cells"),
+                                             tags$li("RPE: Retinal pigment epithelium")
+                                           ),
+                                           
+                                           h4("File Format Requirements"),
+                                           p("Your target bulk RNA-seq file should be a CSV with:"),
+                                           tags$ul(
+                                             tags$li("Genes as rows (first column contains gene identifiers)"),
+                                             tags$li("Samples as columns (column headers are sample IDs)"),
+                                             tags$li("Raw counts (not normalized) are recommended"),
+                                             tags$li("Gene identifiers should match the reference dataset (HGNC gene symbols preferred)")
+                                           )
+                                  )
+                                )
+                            )
+                          )
+                        )
+               ),
+               tabPanel("HGSC",
+                        sidebarLayout(
+                          sidebarPanel(
+                            width = 3,
+                            div(class = "param-box",
+                                h4("HGSC Analysis"),
+                                
+                                fileInput("hgscTargetFile", "Upload Target Bulk RNA-seq (CSV):", 
+                                          accept = c(".csv", ".txt")),
+                                div(class = "info-text", 
+                                    "CSV file with genes as rows and samples as columns"),
+                                
+                                numericInput("hgscMinExpression", "Minimum Expression:", 5, 
+                                             min = 1, max = 10),
+                                numericInput("hgscScaleFactor", "Scale Factor:", 1e6, 
+                                             min = 1e4, max = 1e7),
+                                numericInput("hgscTopGenes", "Top Ranked Genes:", 7000, 
+                                             min = 1000, max = 15000),
+                                
+                                hr(),
+                                
+                                actionButton("runHGSCPredefined", "Run Analysis", 
+                                             class = "btn-primary btn-block"),
+                                
+                                br(),
+                                downloadButton("downloadHGSCPredefinedResults", 
+                                               "Download Results", 
+                                               class = "btn-success btn-block")
+                            )
+                          ),
+                          mainPanel(
+                            width = 9,
+                            div(class = "result-box",
+                                uiOutput("processingIndicatorHGSCPredefined"),
+                                uiOutput("errorDisplayHGSCPredefined"),
+                                
+                                h3("HGSC Analysis Results"),
+                                p("Cell type proportions in your ovarian cancer tissue samples:"),
+                                
+                                tabsetPanel(
+                                  tabPanel("Chart",
+                                           plotlyOutput("hgscPredefinedPlot", height = "500px")
+                                  ),
+                                  tabPanel("Table",
+                                           DTOutput("hgscPredefinedTable")
+                                  ),
+                                  tabPanel("Documentation",
+                                           h4("About HGSC Predefined Analysis"),
+                                           p("This analysis module allows you to use the pre-built HGSC reference dataset with your own target bulk data."),
+                                           
+                                           h4("How It Works"),
+                                           p("The app uses:"),
+                                           tags$ul(
+                                             tags$li("Pre-built consensus reference matrix from high-grade serous ovarian carcinoma tissue"),
+                                             tags$li("Benchmark HGSC dataset to calibrate the deconvolution"),
+                                             tags$li("Your uploaded bulk RNA-seq data as the target for deconvolution")
+                                           ),
+                                           
+                                           h4("Cell Types"),
+                                           p("Major cell types in the analysis include:"),
+                                           tags$ul(
+                                             tags$li("Epithelial cells"),
+                                             tags$li("Endothelial cells"),
+                                             tags$li("Fibroblasts"),
+                                             tags$li("B cells"),
+                                             tags$li("T cells"),
+                                             tags$li("NK cells"),
+                                             tags$li("Macrophages"),
+                                             tags$li("And other immune cells")
+                                           ),
+                                           
+                                           h4("File Format Requirements"),
+                                           p("Your target bulk RNA-seq file should be a CSV with:"),
+                                           tags$ul(
+                                             tags$li("Genes as rows (first column contains gene identifiers)"),
+                                             tags$li("Samples as columns (column headers are sample IDs)"),
+                                             tags$li("Raw counts (not normalized) are recommended"),
+                                             tags$li("Gene identifiers should match the reference dataset (HGNC gene symbols preferred)")
+                                           )
+                                  )
+                                )
+                            )
+                          )
+                        )
+               )
+             )
+    ),
+    
     # User-defined Analysis
     tabPanel("User-defined Analysis",
              fluidRow(
@@ -336,20 +519,16 @@ ui <- fluidPage(
                           h4("Required Files"),
                           fileInput("referenceFile", "Reference Matrix (CSV):", 
                                     accept = c(".csv", ".txt")),
-                          div(class = "info-text", "Single-cell based matrix with genes as rows and cell types as columns"),
-                          
+
                           fileInput("matAFile", "Benchmark Bulk (CSV):", 
                                     accept = c(".csv", ".txt")),
-                          div(class = "info-text", "Benchmark bulk RNA-seq data"),
-                          
+
                           fileInput("matBFile", "Benchmark Pseudo-bulk (CSV):", 
                                     accept = c(".csv", ".txt")),
-                          div(class = "info-text", "Benchmark pseudo-bulk RNA-seq data"),
-                          
+
                           fileInput("targetBulkFile", "Target Bulk (CSV, optional):", 
                                     accept = c(".csv", ".txt")),
-                          div(class = "info-text", "Target bulk samples to deconvolve (optional)"),
-                          
+
                           hr(),
                           
                           actionButton("runAdvanced", "Run Advanced Analysis", 
@@ -369,7 +548,8 @@ ui <- fluidPage(
                           p("This advanced module allows you to run DeMixSC with your own reference and benchmark data:"),
                           
                           tags$ol(
-                            tags$li(strong("Benchmark Mode:"), " If you only provide reference, benchmark bulk, and benchmark pseudo-bulk files (no target bulk), DeMixSC will run in benchmark mode to evaluate deconvolution performance."),
+                            tags$li(strong("Benchmark Mode:"), " If you only provide reference, benchmark bulk, and benchmark pseudo-bulk files (no target bulk), DeMixSC will run in benchmark mode to evaluate 
+                                    deconvolution performance."),
                             tags$li(strong("Real Data Mode:"), " If you also provide a target bulk file, DeMixSC will deconvolve your target samples using your benchmark data as reference.")
                           ),
                           
@@ -424,12 +604,14 @@ ui <- fluidPage(
                  a(href="https://www.nature.com/articles/s41467-019-12917-9",
                    "Nature communications, 10(1), 5743", target="_blank"),
                  
-                 p("Ratnapriya, R., Sosina, O. A., Starostik, M. R., Kwicklis, M., Kapphahn, R. J., Fritsche, L. G., … & Swaroop, A. (2019). Retinal transcriptome and eQTL analyses identify genes associated with age-related macular degeneration."),
+                 p("Ratnapriya, R., Sosina, O. A., Starostik, M. R., Kwicklis, M., Kapphahn, R. J., Fritsche, L. G., … & Swaroop, A. (2019). Retinal transcriptome and eQTL analyses identify genes associated with 
+                   age-related macular degeneration."),
                  a(href="https://www.nature.com/articles/s41588-019-0351-9",
                    "Nature genetics, 51(4), 606-610", target="_blank"),
                  
                  h5("HGSC Data"),
-                 p("Hippen, A. A., Omran, D. K., Weber, L. M., Jung, E., Drapkin, R., Doherty, J. A., … & Greene, C. S. (2023). Performance of computational algorithms to deconvolve heterogeneous bulk ovarian tumor tissue depends on experimental factors."),
+                 p("Hippen, A. A., Omran, D. K., Weber, L. M., Jung, E., Drapkin, R., Doherty, J. A., … & Greene, C. S. (2023). Performance of computational algorithms to deconvolve heterogeneous bulk ovarian tumor 
+                   tissue depends on experimental factors."),
                  a(href="https://genomebiology.biomedcentral.com/articles/10.1186/s13059-023-03077-7",
                    "Genome biology, 24(1), 239", target="_blank"),
                  
