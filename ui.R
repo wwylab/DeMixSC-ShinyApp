@@ -161,79 +161,8 @@ ui <- fluidPage(
              )
     ),
     
-    # Custom Analysis tab
-    tabPanel("Custom Analysis",
-             sidebarLayout(
-               sidebarPanel(
-                 width = 3,
-                 div(class = "param-box",
-                     h4("Data Input"),
-                     fileInput("countsFile", "Upload Count Matrix (CSV):", 
-                               accept = c(".csv", ".txt")),
-                     fileInput("annotFile", "Upload Annotations (CSV):", 
-                               accept = c(".csv", ".txt")),
-                     
-                     selectInput("exampleDataset", "Or Load Example Data:", 
-                                 choices = c("Select" = "", "Retina" = "Retina", "HGSC" = "HGSC")),
-                     actionButton("loadExampleData", "Load Example Data", class = "btn-info btn-sm"),
-                     
-                     hr(),
-                     
-                     h4("Analysis Parameters"),
-                     numericInput("minExpression", "Minimum Expression:", value = 3,
-                                  min = 0, max = 10, step = 1),
-                     div(class = "info-text", "Threshold for filtering low-expressed genes"),
-                     
-                     numericInput("scaleFactor", "Scale Factor:", value = 1e5,
-                                  min = 1e3, max = 1e8, step = 1e4),
-                     div(class = "info-text", "Factor to normalize expression values"),
-                     
-                     numericInput("adjpCutoff", "Adjusted p-value Cutoff:", value = 0.05,
-                                  min = 0.001, max = 0.1, step = 0.001),
-                     div(class = "info-text", "Significance threshold for gene selection"),
-                     
-                     numericInput("log2fcCutoff", "Log2FC Cutoff:", value = 0.75,
-                                  min = 0.1, max = 2, step = 0.05),
-                     div(class = "info-text", "Fold change threshold for gene selection"),
-                     
-                     numericInput("topRankedGenes", "Top Ranked Genes:", value = 1500,
-                                  min = 500, max = 10000, step = 500),
-                     div(class = "info-text", "Number of genes to include in analysis"),
-                     
-                     hr(),
-                     
-                     actionButton("runAnalysis", "Run Analysis", class = "btn-primary btn-block"),
-                     
-                     br(),
-                     downloadButton("downloadCustomResults", "Download Results", class = "btn-success btn-block")
-                 )
-               ),
-               mainPanel(
-                 width = 9,
-                 div(class = "result-box",
-                     # Processing indicator and error messages
-                     uiOutput("processingIndicator"),
-                     uiOutput("errorDisplay"),
-                     
-                     # Results visualization
-                     h3("Analysis Results"),
-                     p("Cell type proportions estimated from your data:"),
-                     
-                     tabsetPanel(
-                       tabPanel("Chart",
-                                plotlyOutput("customPlot", height = "500px")
-                       ),
-                       tabPanel("Table",
-                                DTOutput("customTable")
-                       )
-                     )
-                 )
-               )
-             )
-    ),
-    
-    # Package Data tab
-    tabPanel("Package Data",
+    # Example tab
+    tabPanel("Example",
              tabsetPanel(
                tabPanel("Retina",
                         sidebarLayout(
@@ -396,8 +325,8 @@ ui <- fluidPage(
              )
     ),
     
-    # Advanced tab (for user-defined analysis with benchmark data)
-    tabPanel("Advanced",
+    # User-defined Analysis
+    tabPanel("User-defined Analysis",
              fluidRow(
                column(3,
                       div(class = "param-box",
