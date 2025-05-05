@@ -12,15 +12,6 @@ ui <- fluidPage(
       body {
         font-family: 'Arial', sans-serif;
       }
-      .navbar {
-        background-color: #2c3e50;
-      }
-      .navbar-default .navbar-nav > li > a {
-        color: white;
-      }
-      .navbar-default .navbar-brand {
-        color: white;
-      }
       .title-panel {
         background-color: #f8f9fa;
         padding: 15px;
@@ -65,14 +56,12 @@ ui <- fluidPage(
   ),
   
   div(class = "title-panel",
-      titlePanel("DeMixSC: Cell Type Deconvolution Framework"),
+      titlePanel("DeMixSC-on-Web: Cell Type Deconvolution Framework"),
       p("A deconvolution framework using single-cell sequencing plus benchmark datasets for accurate analysis of cell type ratios")
   ),
   
   navbarPage(
     title = div(
-      img(src = "https://raw.githubusercontent.com/wwylab/DeMixSC/main/vignettes/logo_small.png", height = "30px", style = "margin-right: 10px; display:inline-block; vertical-align: middle;"),
-      "DeMixSC"
     ),
     id = "navBar",
     
