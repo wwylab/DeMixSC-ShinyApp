@@ -285,6 +285,16 @@ server <- function(input, output, session) {
     })
   })
   
+  # Function to generate a proper color palette 
+  generateColorPalette <- function(n) {
+    if (n <= 8) {
+      return(RColorBrewer::brewer.pal(n, "Set2"))
+    } else {
+      base_colors <- RColorBrewer::brewer.pal(8, "Set2")
+      return(colorRampPalette(base_colors)(n))
+    }
+  } 
+  
   # Example Retina plots and tables
   output$retinaPlot <- renderPlotly({
     req(values$retina_results)
@@ -308,7 +318,12 @@ server <- function(input, output, session) {
         
         plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
         
-        p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, type = "bar") %>%
+        n_samples <- length(unique(plot_long$Sample))
+        color_palette <- generateColorPalette(n_samples)
+        
+        p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, 
+                     type = "bar",
+                     colors = color_palette) %>%
           layout(title = "Retina Cell Type Proportions",
                  xaxis = list(title = "Cell Types", tickangle = 45),
                  yaxis = list(title = "Proportion"),
@@ -317,31 +332,38 @@ server <- function(input, output, session) {
         return(p)
       }
     } else {
-      bulk_prop <- values$retina_results$bulk.prop
-      pseudo_prop <- values$retina_results$pseudobulk.prop
+      if (!is.null(values$retina_results$bulk.prop) && !is.null(values$retina_results$pseudobulk.prop)) {
+        bulk_prop <- values$retina_results$bulk.prop
+        pseudo_prop <- values$retina_results$pseudobulk.prop
       
-      plot_df <- data.frame(
-        CellType = rownames(bulk_prop),
-        stringsAsFactors = FALSE
-      )
+        plot_df <- data.frame(
+          CellType = rownames(bulk_prop),
+          stringsAsFactors = FALSE
+        )
       
-      for (i in 1:ncol(bulk_prop)) {
-        plot_df[[paste0("Bulk_", colnames(bulk_prop)[i])]] <- bulk_prop[, i]
+        for (i in 1:ncol(bulk_prop)) {
+          plot_df[[paste0("Bulk_", colnames(bulk_prop)[i])]] <- bulk_prop[, i]
+        }
+        
+        for (i in 1:ncol(pseudo_prop)) {
+          plot_df[[paste0("PseudoBulk_", colnames(pseudo_prop)[i])]] <- pseudo_prop[, i]
+        }
+        
+        plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
+        
+        n_samples <- length(unique(plot_long$Sample))
+        color_palette <- generateColorPalette(n_samples)
+        
+        p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, 
+                     type = "bar", 
+                     colors = color_palette) %>%
+          layout(title = "Retina Benchmark Comparison",
+                 xaxis = list(title = "Cell Types", tickangle = 45),
+                 yaxis = list(title = "Proportion"),
+                 barmode = "group")
+        
+        return(p)
       }
-      
-      for (i in 1:ncol(pseudo_prop)) {
-        plot_df[[paste0("PseudoBulk_", colnames(pseudo_prop)[i])]] <- pseudo_prop[, i]
-      }
-      
-      plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
-      
-      p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, type = "bar") %>%
-        layout(title = "Retina Benchmark Comparison",
-               xaxis = list(title = "Cell Types", tickangle = 45),
-               yaxis = list(title = "Proportion"),
-               barmode = "group")
-      
-      return(p)
     }
     
     plot_ly() %>% 
@@ -372,7 +394,12 @@ server <- function(input, output, session) {
         
         plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
         
-        p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, type = "bar") %>%
+        n_samples <- length(unique(plot_long$Sample))
+        color_palette <- generateColorPalette(n_samples)
+        
+        p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, 
+                     type = "bar", 
+                     colors = color_palette) %>%
           layout(title = "HGSC Cell Type Proportions",
                  xaxis = list(title = "Cell Types", tickangle = 45),
                  yaxis = list(title = "Proportion"),
@@ -381,34 +408,42 @@ server <- function(input, output, session) {
         return(p)
       }
     } else {
-      bulk_prop <- values$hgsc_results$bulk.prop
-      pseudo_prop <- values$hgsc_results$pseudobulk.prop
-      
-      plot_df <- data.frame(
-        CellType = rownames(bulk_prop),
-        stringsAsFactors = FALSE
-      )
-      
-      for (i in 1:ncol(bulk_prop)) {
-        plot_df[[paste0("Bulk_", colnames(bulk_prop)[i])]] <- bulk_prop[, i]
+      if (!is.null(values$hgsc_results$bulk.prop) && !is.null(values$hgsc_results$pseudobulk.prop)) {
+        bulk_prop <- values$hgsc_results$bulk.prop
+        pseudo_prop <- values$hgsc_results$pseudobulk.prop
+        
+        plot_df <- data.frame(
+          CellType = rownames(bulk_prop),
+          stringsAsFactors = FALSE
+        )
+        
+        for (i in 1:ncol(bulk_prop)) {
+          plot_df[[paste0("Bulk_", colnames(bulk_prop)[i])]] <- bulk_prop[, i]
+        }
+        
+        for (i in 1:ncol(pseudo_prop)) {
+          plot_df[[paste0("PseudoBulk_", colnames(pseudo_prop)[i])]] <- pseudo_prop[, i]
+        }
+        
+        plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
+        
+        n_samples <- length(unique(plot_long$Sample))
+        color_palette <- generateColorPalette(n_samples)
+        
+        p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, 
+                     type = "bar", 
+                     colors = color_palette) %>%
+          layout(title = "HGSC Benchmark Comparison",
+                 xaxis = list(title = "Cell Types", tickangle = 45),
+                 yaxis = list(title = "Proportion"),
+                 barmode = "group")
+        
+        return(p)
       }
-      
-      for (i in 1:ncol(pseudo_prop)) {
-        plot_df[[paste0("PseudoBulk_", colnames(pseudo_prop)[i])]] <- pseudo_prop[, i]
-      }
-      
-      plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
-      
-      p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, type = "bar") %>%
-        layout(title = "HGSC Benchmark Comparison",
-               xaxis = list(title = "Cell Types", tickangle = 45),
-               yaxis = list(title = "Proportion"),
-               barmode = "group")
-      
-      return(p)
     }
     
     plot_ly() %>% 
+      add_trace(type = "scatter", mode = "markers", x = c(), y = c()) %>%
       layout(title = "No valid data available for plotting",
              xaxis = list(title = ""),
              yaxis = list(title = ""))
@@ -495,8 +530,10 @@ server <- function(input, output, session) {
     req(values$retina_results)
     
     if (input$retinaDataset == "AMD Cohort") {
+      prop_table <- round(t(values$retina_results$cell.type.proportions), 4)
+      
       dt <- datatable(
-        round(t(values$retina_results$cell.type.proportions), 4),
+        prop_table,
         options = list(
           scrollX = TRUE,
           pageLength = 10,
@@ -504,51 +541,70 @@ server <- function(input, output, session) {
         ),
         rownames = TRUE,
         caption = "Retina Cell Type Proportions"
-      ) %>%
-        formatStyle(
-          columns = colnames(t(values$retina_results$cell.type.proportions)),
-          background = styleColorBar(c(0, 1), 'lightblue'),
-          backgroundSize = '100% 90%',
-          backgroundRepeat = 'no-repeat',
-          backgroundPosition = 'center'
-        )
+      )
+      
+      if (ncol(prop_table) > 0) {
+        dt <- dt %>%
+          formatStyle(
+            columns = colnames(prop_table),
+            background = styleColorBar(c(0, 1), 'lightblue'),
+            backgroundSize = '100% 90%',
+            backgroundRepeat = 'no-repeat',
+            backgroundPosition = 'center'
+          )
+      }
+      
       return(dt)
     } else {
-      bulk_prop <- round(t(values$retina_results$bulk.prop), 4)
-      pseudo_prop <- round(t(values$retina_results$pseudobulk.prop), 4)
-      
-      bulk_prop$Source <- "Bulk"
-      pseudo_prop$Source <- "PseudoBulk"
-      
-      combined <- rbind(bulk_prop, pseudo_prop)
-      
-      dt <- datatable(
-        combined,
-        options = list(
-          scrollX = TRUE,
-          pageLength = 15,
-          lengthMenu = c(5, 10, 15, 20)
-        ),
-        rownames = TRUE,
-        caption = "Retina Benchmark Results"
-      ) %>%
-        formatStyle(
-          columns = setdiff(colnames(combined), "Source"),
-          background = styleColorBar(c(0, 1), 'lightblue'),
-          backgroundSize = '100% 90%',
-          backgroundRepeat = 'no-repeat',
-          backgroundPosition = 'center'
+      if (!is.null(values$retina_results$bulk.prop) && !is.null(values$retina_results$pseudobulk.prop)) {
+        bulk_data <- as.data.frame(round(t(values$retina_results$bulk.prop), 4))
+        pseudo_data <- as.data.frame(round(t(values$retina_results$pseudobulk.prop), 4))
+        
+        bulk_data$Source <- "Bulk"
+        pseudo_data$Source <- "PseudoBulk"
+        
+        combined <- rbind(bulk_data, pseudo_data)
+        
+        dt <- datatable(
+          combined,
+          options = list(
+            scrollX = TRUE,
+            pageLength = 15,
+            lengthMenu = c(5, 10, 15, 20)
+          ),
+          rownames = TRUE,
+          caption = "Retina Benchmark Results"
         )
-      return(dt)
+        
+        numeric_cols <- setdiff(colnames(combined), "Source")
+        
+        if (length(numeric_cols) > 0) {
+          dt <- dt %>%
+            formatStyle(
+              columns = numeric_cols,
+              background = styleColorBar(c(0, 1), 'lightblue'),
+              backgroundSize = '100% 90%',
+              backgroundRepeat = 'no-repeat',
+              backgroundPosition = 'center'
+            )
+        }
+        
+        return(dt)
+      }
     }
+    
+    return(datatable(data.frame(Message = "No valid data available for display"), 
+                     caption = "Data Error", options = list(dom = 't')))
   })
   
   output$hgscTable <- renderDT({
     req(values$hgsc_results)
     
     if (input$hgscDataset == "Lee Cohort") {
+      prop_table <- round(t(values$hgsc_results$cell.type.proportions), 4)
+      
       dt <- datatable(
-        round(t(values$hgsc_results$cell.type.proportions), 4),
+        prop_table,
         options = list(
           scrollX = TRUE,
           pageLength = 10,
@@ -556,43 +612,60 @@ server <- function(input, output, session) {
         ),
         rownames = TRUE,
         caption = "HGSC Cell Type Proportions"
-      ) %>%
-        formatStyle(
-          columns = colnames(t(values$hgsc_results$cell.type.proportions)),
-          background = styleColorBar(c(0, 1), 'lightblue'),
-          backgroundSize = '100% 90%',
-          backgroundRepeat = 'no-repeat',
-          backgroundPosition = 'center'
-        )
+      )
+      
+      if (ncol(prop_table) > 0) {
+        dt <- dt %>%
+          formatStyle(
+            columns = colnames(prop_table),
+            background = styleColorBar(c(0, 1), 'lightblue'),
+            backgroundSize = '100% 90%',
+            backgroundRepeat = 'no-repeat',
+            backgroundPosition = 'center'
+          )
+      }
+      
       return(dt)
     } else {
-      bulk_prop <- round(t(values$hgsc_results$bulk.prop), 4)
-      pseudo_prop <- round(t(values$hgsc_results$pseudobulk.prop), 4)
-      
-      bulk_prop$Source <- "Bulk"
-      pseudo_prop$Source <- "PseudoBulk"
-      
-      combined <- rbind(bulk_prop, pseudo_prop)
-      
-      dt <- datatable(
-        combined,
-        options = list(
-          scrollX = TRUE,
-          pageLength = 15,
-          lengthMenu = c(5, 10, 15, 20)
-        ),
-        rownames = TRUE,
-        caption = "HGSC Benchmark Results (rounded to 4 decimal places)"
-      ) %>%
-        formatStyle(
-          columns = setdiff(colnames(combined), "Source"),
-          background = styleColorBar(c(0, 1), 'lightblue'),
-          backgroundSize = '100% 90%',
-          backgroundRepeat = 'no-repeat',
-          backgroundPosition = 'center'
+      if (!is.null(values$hgsc_results$bulk.prop) && !is.null(values$hgsc_results$pseudobulk.prop)) {
+        bulk_data <- as.data.frame(round(t(values$hgsc_results$bulk.prop), 4))
+        pseudo_data <- as.data.frame(round(t(values$hgsc_results$pseudobulk.prop), 4))
+        
+        bulk_data$Source <- "Bulk"
+        pseudo_data$Source <- "PseudoBulk"
+        
+        combined <- rbind(bulk_data, pseudo_data)
+        
+        dt <- datatable(
+          combined,
+          options = list(
+            scrollX = TRUE,
+            pageLength = 15,
+            lengthMenu = c(5, 10, 15, 20)
+          ),
+          rownames = TRUE,
+          caption = "HGSC Benchmark Results"
         )
-      return(dt)
+        
+        numeric_cols <- setdiff(colnames(combined), "Source")
+        
+        if (length(numeric_cols) > 0) {
+          dt <- dt %>%
+            formatStyle(
+              columns = numeric_cols,
+              background = styleColorBar(c(0, 1), 'lightblue'),
+              backgroundSize = '100% 90%',
+              backgroundRepeat = 'no-repeat',
+              backgroundPosition = 'center'
+            )
+        }
+        
+        return(dt)
+      }
     }
+    
+    return(datatable(data.frame(Message = "No valid data available for display"), 
+                     caption = "Data Error", options = list(dom = 't')))
   })
   
   # Predefined analysis tables
