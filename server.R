@@ -6,6 +6,8 @@ library(DT)
 library(shinyWidgets)
 library(parallel)
 
+options(shiny.maxRequestSize = 66*1024^2)  
+
 check_and_install <- function(package_name) {
   if (!requireNamespace(package_name, quietly = TRUE)) {
     message(paste("Installing package:", package_name))
@@ -290,7 +292,7 @@ server <- function(input, output, session) {
     if (n <= 8) {
       return(RColorBrewer::brewer.pal(n, "Set2"))
     } else {
-      base_colors <- RColorBrewer::brewer.pal(8, "Set2")
+      base_colors <- suppressWarnings(RColorBrewer::brewer.pal(8, "Set2"))
       return(colorRampPalette(base_colors)(n))
     }
   } 
@@ -841,6 +843,254 @@ server <- function(input, output, session) {
         style = "text-align: center; margin-top: 20px;",
         spin_flower(),
         p("Processing your HGSC data... This may take a few minutes.")
+      )
+    }
+  })
+  
+  # Handle target bulk file upload for user-defined analysis
+  observeEvent(input$targetBulkFile, {
+    req(input$targetBulkFile)
+    tryCatch({
+      values$target_bulk <- read.csv(input$targetBulkFile$datapath, row.names=1)
+      showNotification("Target bulk file loaded successfully!", type = "message")
+    }, error = function(e) {
+      showNotification(paste("Error loading target bulk file:", e$message), type = "error")
+      values$target_bulk <- NULL
+    })
+  })
+  
+  # User-defined analysis
+  observeEvent(input$runAdvanced, {
+    req(values$reference, values$mat_a, values$mat_b)
+    
+    values$is_processing <- TRUE
+    values$error_message <- NULL
+    
+    shinyjs::disable("runAdvanced")
+    
+    withProgress(message = 'Running user-defined analysis...', value = 0, {
+      tryCatch({
+        benchmark_mode <- is.null(values$target_bulk)
+        
+        reference_to_use <- NULL
+        if (is.list(values$reference) && "reference" %in% names(values$reference)) {
+          reference_to_use <- as.matrix(values$reference$reference)
+        } else if (is.data.frame(values$reference) || is.matrix(values$reference)) {
+          reference_to_use <- as.matrix(values$reference)
+        } else {
+          stop(paste("Cannot process reference of class:", class(values$reference)[1]))
+        }
+        
+        mat_a_to_use <- as.matrix(values$mat_a)
+        mat_b_to_use <- as.matrix(values$mat_b)
+        
+        target_bulk_to_use <- NULL
+        if (!benchmark_mode) {
+          target_bulk_to_use <- as.matrix(values$target_bulk)
+        }
+        
+        if (benchmark_mode) {
+          values$custom_results <- DeMixSC(
+            option = "user.defined",
+            benchmark.mode = TRUE,
+            reference = reference_to_use,
+            mat.a = mat_a_to_use,
+            mat.b = mat_b_to_use,
+            min.expression = input$customMinExpression,
+            scale.factor = input$customScaleFactor,
+            top.ranked.genes = input$customTopGenes,
+            nthread = min(detectCores() - 1, 1)
+          )
+        } else {
+          values$custom_results <- DeMixSC(
+            option = "user.defined",
+            benchmark.mode = FALSE,
+            reference = reference_to_use,
+            mat.a = mat_a_to_use,
+            mat.b = mat_b_to_use,
+            mat.target = target_bulk_to_use,
+            min.expression = input$customMinExpression,
+            scale.factor = input$customScaleFactor,
+            top.ranked.genes = input$customTopGenes,
+            nthread = min(detectCores() - 1, 1)
+          )
+        }
+        
+        values$custom_analysis_complete <- TRUE
+        showNotification("User-defined analysis completed successfully!", type = "message")
+      }, error = function(e) {
+        values$error_message <- paste("Error in user-defined analysis:", e$message)
+        showNotification(values$error_message, type = "error", duration = NULL)
+      }, finally = {
+        values$is_processing <- FALSE
+        shinyjs::enable("runAdvanced")
+      })
+    })
+  })
+  
+  # Create outputs for visualizing results
+  output$customPlot <- renderPlotly({
+    req(values$custom_results)
+    
+    if (!is.null(values$custom_results$cell.type.proportions)) {
+      plot_data <- values$custom_results$cell.type.proportions
+      
+      if (ncol(plot_data) > 20) {
+        set.seed(123)
+        sampled_cols <- sample(1:ncol(plot_data), 20)
+        plot_data <- plot_data[, sampled_cols]
+      }
+      
+      plot_df <- data.frame(
+        CellType = rownames(plot_data),
+        stringsAsFactors = FALSE
+      )
+      
+      for (i in 1:ncol(plot_data)) {
+        plot_df[[colnames(plot_data)[i]]] <- plot_data[, i]
+      }
+      
+      plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
+      
+      p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, type = "bar") %>%
+        layout(title = "Cell Type Proportions in Target Data",
+               xaxis = list(title = "Cell Types", tickangle = 45),
+               yaxis = list(title = "Proportion"),
+               barmode = "group")
+      
+      return(p)
+    } else if (!is.null(values$custom_results$bulk.prop) && !is.null(values$custom_results$pseudobulk.prop)) {
+      bulk_prop <- values$custom_results$bulk.prop
+      pseudo_prop <- values$custom_results$pseudobulk.prop
+      
+      plot_df <- data.frame(
+        CellType = rownames(bulk_prop),
+        stringsAsFactors = FALSE
+      )
+      
+      for (i in 1:ncol(bulk_prop)) {
+        plot_df[[paste0("Bulk_", colnames(bulk_prop)[i])]] <- bulk_prop[, i]
+      }
+      
+      for (i in 1:ncol(pseudo_prop)) {
+        plot_df[[paste0("PseudoBulk_", colnames(pseudo_prop)[i])]] <- pseudo_prop[, i]
+      }
+      
+      plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
+      
+      p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, type = "bar") %>%
+        layout(title = "Benchmark Results Comparison",
+               xaxis = list(title = "Cell Types", tickangle = 45),
+               yaxis = list(title = "Proportion"),
+               barmode = "group")
+      
+      return(p)
+    }
+    
+    plot_ly() %>% 
+      layout(title = "No valid data available for plotting",
+             xaxis = list(title = ""),
+             yaxis = list(title = ""))
+  })
+  
+  output$customTable <- renderDT({
+    req(values$custom_results)
+    
+    if (!is.null(values$custom_results$cell.type.proportions)) {
+      dt <- datatable(
+        round(t(values$custom_results$cell.type.proportions), 4),
+        options = list(
+          scrollX = TRUE,
+          pageLength = 10,
+          lengthMenu = c(5, 10, 15, 20)
+        ),
+        rownames = TRUE,
+        caption = "Cell Type Proportions in Target Data"
+      ) %>%
+        formatStyle(
+          columns = colnames(t(values$custom_results$cell.type.proportions)),
+          background = styleColorBar(c(0, 1), 'lightblue'),
+          backgroundSize = '100% 90%',
+          backgroundRepeat = 'no-repeat',
+          backgroundPosition = 'center'
+        )
+      return(dt)
+    } else if (!is.null(values$custom_results$bulk.prop) && !is.null(values$custom_results$pseudobulk.prop)) {
+      # Benchmark mode table
+      bulk_data <- as.data.frame(round(t(values$custom_results$bulk.prop), 4))
+      pseudo_data <- as.data.frame(round(t(values$custom_results$pseudobulk.prop), 4))
+      
+      bulk_data$Source <- "Bulk"
+      pseudo_data$Source <- "PseudoBulk"
+      
+      combined <- rbind(bulk_data, pseudo_data)
+      
+      dt <- datatable(
+        combined,
+        options = list(
+          scrollX = TRUE,
+          pageLength = 15,
+          lengthMenu = c(5, 10, 15, 20)
+        ),
+        rownames = TRUE,
+        caption = "Benchmark Results"
+      )
+      
+      numeric_cols <- setdiff(colnames(combined), "Source")
+      
+      if (length(numeric_cols) > 0) {
+        dt <- dt %>%
+          formatStyle(
+            columns = numeric_cols,
+            background = styleColorBar(c(0, 1), 'lightblue'),
+            backgroundSize = '100% 90%',
+            backgroundRepeat = 'no-repeat',
+            backgroundPosition = 'center'
+          )
+      }
+      
+      return(dt)
+    }
+    
+    return(datatable(data.frame(Message = "No valid data available for display"), 
+                     caption = "Data Error", options = list(dom = 't')))
+  })
+  
+  # Add download handler
+  output$downloadAdvancedResults <- downloadHandler(
+    filename = function() {
+      paste0("user-defined-demixsc-results-", format(Sys.time(), "%Y%m%d-%H%M%S"), ".csv")
+    },
+    content = function(file) {
+      req(values$custom_results)
+      if (!is.null(values$custom_results$cell.type.proportions)) {
+        write.csv(values$custom_results$cell.type.proportions, file)
+      } else {
+        results_list <- list(
+          bulk = values$custom_results$bulk.prop,
+          pseudobulk = values$custom_results$pseudobulk.prop
+        )
+        saveRDS(results_list, file)
+      }
+    }
+  )
+  
+  output$processingIndicatorCustom <- renderUI({
+    if (values$is_processing) {
+      div(
+        style = "text-align: center; margin-top: 20px;",
+        spin_flower(),
+        p("Processing your data... This may take a few minutes.")
+      )
+    }
+  })
+  
+  output$errorDisplayCustom <- renderUI({
+    if (!is.null(values$error_message)) {
+      div(
+        style = "color: red; background-color: #ffeeee; padding: 10px; border-radius: 5px; margin-top: 10px;",
+        icon("exclamation-triangle"),
+        p(values$error_message)
       )
     }
   })
