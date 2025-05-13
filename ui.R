@@ -510,74 +510,99 @@ ui <- fluidPage(
     
     # User-defined Analysis
     tabPanel("User-defined Analysis",
-             fluidRow(
-               column(3,
-                      div(class = "param-box",
-                          h4("User-Defined Analysis with Benchmark"),
-                          p("For advanced users who want to provide their own benchmark data."),
-                          
-                          h4("Required Files"),
-                          fileInput("referenceFile", "Reference Matrix (CSV):", 
-                                    accept = c(".csv", ".txt")),
-
-                          fileInput("matAFile", "Benchmark Bulk (CSV):", 
-                                    accept = c(".csv", ".txt")),
-
-                          fileInput("matBFile", "Benchmark Pseudo-bulk (CSV):", 
-                                    accept = c(".csv", ".txt")),
-
-                          fileInput("targetBulkFile", "Target Bulk (CSV, optional):", 
-                                    accept = c(".csv", ".txt")),
-
-                          hr(),
-                          
-                          actionButton("runAdvanced", "Run Advanced Analysis", 
-                                       class = "btn-primary btn-block"),
-                          
-                          br(),
-                          downloadButton("downloadAdvancedResults", 
-                                         "Download Results",
-                                         class = "btn-success btn-block")
-                      )
+             sidebarLayout(
+               sidebarPanel(
+                 width = 3,
+                 div(class = "param-box",
+                     h4("User-Defined Analysis"),
+                     
+                     h4("Required Files"),
+                     fileInput("referenceFile", "Reference Matrix (CSV):", 
+                               accept = c(".csv", ".txt")),
+                     fileInput("matAFile", "Benchmark Bulk (CSV):", 
+                               accept = c(".csv", ".txt")),
+                     fileInput("matBFile", "Benchmark Pseudo-bulk (CSV):", 
+                               accept = c(".csv", ".txt")),
+                     fileInput("targetBulkFile", "Target Bulk (CSV, optional):", 
+                               accept = c(".csv", ".txt")),
+                     
+                     hr(),
+                     
+                     h4("Analysis Parameters"),
+                     numericInput("customMinExpression", "Minimum Expression:", 3, 
+                                  min = 1, max = 10),
+                     numericInput("customScaleFactor", "Scale Factor:", 1e5, 
+                                  min = 1e4, max = 1e7),
+                     numericInput("customTopGenes", "Top Ranked Genes:", 1500, 
+                                  min = 500, max = 10000),
+                     
+                     div(class = "info-text", 
+                         HTML("<b>Benchmark Mode:</b> Run without target bulk<br>
+                          <b>Real Data Mode:</b> Run with your target bulk")),
+                     
+                     hr(),
+                     
+                     actionButton("runAdvanced", "Run Analysis", 
+                                  class = "btn-primary btn-block"),
+                     
+                     br(),
+                     downloadButton("downloadAdvancedResults", 
+                                    "Download Results", 
+                                    class = "btn-success btn-block")
+                 )
                ),
-               column(9,
-                      div(class = "result-box",
-                          h3("Advanced Analysis Documentation"),
-                          
-                          h4("User-Defined Analysis Workflow"),
-                          p("This advanced module allows you to run DeMixSC with your own reference and benchmark data:"),
-                          
-                          tags$ol(
-                            tags$li(strong("Benchmark Mode:"), " If you only provide reference, benchmark bulk, and benchmark pseudo-bulk files (no target bulk), DeMixSC will run in benchmark mode to evaluate 
-                                    deconvolution performance."),
-                            tags$li(strong("Real Data Mode:"), " If you also provide a target bulk file, DeMixSC will deconvolve your target samples using your benchmark data as reference.")
-                          ),
-                          
-                          h4("File Format Requirements"),
-                          tags$ul(
-                            tags$li(strong("Reference Matrix:"), " CSV with genes in rows and cell types in columns"),
-                            tags$li(strong("Benchmark Bulk:"), " CSV with genes in rows and samples in columns"),
-                            tags$li(strong("Benchmark Pseudo-bulk:"), " CSV with genes in rows and samples in columns"),
-                            tags$li(strong("Target Bulk:"), " CSV with genes in rows and samples in columns")
-                          ),
-                          
-                          h4("Tips for Successful Analysis"),
-                          tags$ul(
-                            tags$li("Ensure gene names are consistent across all files"),
-                            tags$li("Pre-filter low-quality genes and samples for better results"),
-                            tags$li("Start with default parameters and adjust based on results"),
-                            tags$li("For optimal performance, aim for a well-matched benchmark dataset")
-                          ),
-                          
-                          h4("Example Workflow"),
-                          p("To run a benchmark evaluation:"),
-                          tags$ol(
-                            tags$li("Upload your reference matrix with cell type-specific profiles"),
-                            tags$li("Upload paired benchmark data (bulk and pseudo-bulk)"),
-                            tags$li("Run analysis in benchmark mode"),
-                            tags$li("Evaluate accuracy by comparing with ground truth proportions")
-                          )
-                      )
+               mainPanel(
+                 width = 9,
+                 div(class = "result-box",
+                     uiOutput("processingIndicatorCustom"),
+                     uiOutput("errorDisplayCustom"),
+                     
+                     h3("Custom Analysis Results"),
+                     p("Cell type proportions from your data:"),
+                     
+                     tabsetPanel(
+                       tabPanel("Chart",
+                                plotlyOutput("customPlot", height = "500px")
+                       ),
+                       tabPanel("Table",
+                                DTOutput("customTable")
+                       ),
+                       tabPanel("Documentation",
+                                h4("About User-Defined Analysis"),
+                                p("This advanced module allows you to run DeMixSC with your own reference and benchmark data:"),
+                                
+                                tags$ol(
+                                  tags$li(strong("Benchmark Mode:"), " If you only provide reference, benchmark bulk, and benchmark pseudo-bulk files (no target bulk), DeMixSC will run in benchmark mode to evaluate deconvolution performance."),
+                                  tags$li(strong("Real Data Mode:"), " If you also provide a target bulk file, DeMixSC will deconvolve your target samples using your benchmark data as reference.")
+                                ),
+                                
+                                h4("File Format Requirements"),
+                                tags$ul(
+                                  tags$li(strong("Reference Matrix:"), " CSV with genes in rows and cell types in columns"),
+                                  tags$li(strong("Benchmark Bulk:"), " CSV with genes in rows and samples in columns"),
+                                  tags$li(strong("Benchmark Pseudo-bulk:"), " CSV with genes in rows and samples in columns"),
+                                  tags$li(strong("Target Bulk:"), " CSV with genes in rows and samples in columns")
+                                ),
+                                
+                                h4("Tips for Successful Analysis"),
+                                tags$ul(
+                                  tags$li("Ensure gene names are consistent across all files"),
+                                  tags$li("Pre-filter low-quality genes and samples for better results"),
+                                  tags$li("Start with default parameters and adjust based on results"),
+                                  tags$li("For optimal performance, aim for a well-matched benchmark dataset")
+                                ),
+                                
+                                h4("Workflow"),
+                                tags$ol(
+                                  tags$li("Upload your reference matrix with cell type-specific profiles"),
+                                  tags$li("Upload paired benchmark data (bulk and pseudo-bulk)"),
+                                  tags$li("Optionally upload target bulk data to deconvolve"),
+                                  tags$li("Adjust analysis parameters if needed"),
+                                  tags$li("Click 'Run Analysis' to start the deconvolution")
+                                )
+                       )
+                     )
+                 )
                )
              )
     ),
