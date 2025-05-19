@@ -289,82 +289,131 @@ server <- function(input, output, session) {
   
   # Function to generate a proper color palette 
   generateColorPalette <- function(n) {
-    if (n <= 8) {
-      return(RColorBrewer::brewer.pal(n, "Set2"))
+    base_colors <- c("#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3", 
+                     "#A6D854", "#FFD92F", "#E5C494", "#B3B3B3",
+                     "#4D4D4D", "#D53E4F", "#1F78B4", "#33A02C")
+    
+    if (n <= length(base_colors)) {
+      return(base_colors[1:n])
     } else {
-      base_colors <- suppressWarnings(RColorBrewer::brewer.pal(8, "Set2"))
       return(colorRampPalette(base_colors)(n))
     }
-  } 
+  }
   
   # Example Retina plots and tables
   output$retinaPlot <- renderPlotly({
     req(values$retina_results)
     
-    if (input$retinaDataset == "AMD Cohort") {
-      plot_data <- values$retina_results$cell.type.proportions
-      
-      if (!is.null(plot_data) && ncol(plot_data) > 0 && nrow(plot_data) > 0) {
-        if (ncol(plot_data) > 10) {
-          plot_data <- plot_data[, 1:10]
+    if (input$retinaPlotType == "boxplot") {
+      if (input$retinaDataset == "AMD Cohort") {
+        plot_data <- values$retina_results$cell.type.proportions
+        
+        if (!is.null(plot_data) && ncol(plot_data) > 0 && nrow(plot_data) > 0) {
+          if (ncol(plot_data) > 10) {
+            plot_data <- plot_data[, 1:10]
+          }
+          
+          plot_df <- data.frame(
+            CellType = rownames(plot_data),
+            stringsAsFactors = FALSE
+          )
+          
+          for (i in 1:ncol(plot_data)) {
+            plot_df[[colnames(plot_data)[i]]] <- plot_data[, i]
+          }
+          
+          plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
+          
+          n_samples <- length(unique(plot_long$Sample))
+          color_palette <- generateColorPalette(n_samples)
+          
+          p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, 
+                       type = "bar",
+                       colors = color_palette) %>%
+            layout(title = "Retina Cell Type Proportions",
+                   xaxis = list(title = "Cell Types", tickangle = 45),
+                   yaxis = list(title = "Proportion"),
+                   barmode = "group")
+          
+          return(p)
         }
-        
-        plot_df <- data.frame(
-          CellType = rownames(plot_data),
-          stringsAsFactors = FALSE
-        )
-        
-        for (i in 1:ncol(plot_data)) {
-          plot_df[[colnames(plot_data)[i]]] <- plot_data[, i]
+      } else {
+        if (!is.null(values$retina_results$bulk.prop) && !is.null(values$retina_results$pseudobulk.prop)) {
+          bulk_prop <- values$retina_results$bulk.prop
+          pseudo_prop <- values$retina_results$pseudobulk.prop
+          
+          plot_df <- data.frame(
+            CellType = rownames(bulk_prop),
+            stringsAsFactors = FALSE
+          )
+          
+          for (i in 1:ncol(bulk_prop)) {
+            plot_df[[paste0("Bulk_", colnames(bulk_prop)[i])]] <- bulk_prop[, i]
+          }
+          
+          for (i in 1:ncol(pseudo_prop)) {
+            plot_df[[paste0("PseudoBulk_", colnames(pseudo_prop)[i])]] <- pseudo_prop[, i]
+          }
+          
+          plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
+          
+          n_samples <- length(unique(plot_long$Sample))
+          color_palette <- generateColorPalette(n_samples)
+          
+          p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, 
+                       type = "bar", 
+                       colors = color_palette) %>%
+            layout(title = "Retina Benchmark Comparison",
+                   xaxis = list(title = "Cell Types", tickangle = 45),
+                   yaxis = list(title = "Proportion"),
+                   barmode = "group")
+          
+          return(p)
         }
-        
-        plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
-        
-        n_samples <- length(unique(plot_long$Sample))
-        color_palette <- generateColorPalette(n_samples)
-        
-        p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, 
-                     type = "bar",
-                     colors = color_palette) %>%
-          layout(title = "Retina Cell Type Proportions",
-                 xaxis = list(title = "Cell Types", tickangle = 45),
-                 yaxis = list(title = "Proportion"),
-                 barmode = "group")
-        
-        return(p)
       }
     } else {
-      if (!is.null(values$retina_results$bulk.prop) && !is.null(values$retina_results$pseudobulk.prop)) {
-        bulk_prop <- values$retina_results$bulk.prop
-        pseudo_prop <- values$retina_results$pseudobulk.prop
+      req(input$retinaSampleID)
       
-        plot_df <- data.frame(
-          CellType = rownames(bulk_prop),
-          stringsAsFactors = FALSE
-        )
-      
-        for (i in 1:ncol(bulk_prop)) {
-          plot_df[[paste0("Bulk_", colnames(bulk_prop)[i])]] <- bulk_prop[, i]
+      if (input$retinaDataset == "AMD Cohort") {
+        plot_data <- values$retina_results$cell.type.proportions[, input$retinaSampleID, drop = FALSE]
+        
+        if (!is.null(plot_data) && ncol(plot_data) > 0 && nrow(plot_data) > 0) {
+          plot_df <- data.frame(
+            CellType = rownames(plot_data),
+            Proportion = plot_data[,1],
+            stringsAsFactors = FALSE
+          )
+          
+          plot_df <- plot_df[order(plot_df$Proportion, decreasing = TRUE),]
+          
+          p <- plot_ly(plot_df, x = ~CellType, y = ~Proportion, type = "bar",
+                       marker = list(color = "#3498db")) %>%
+            layout(title = paste0("Cell Type Proportions for Sample: ", input$retinaSampleID),
+                   xaxis = list(title = "Cell Types", tickangle = 45, categoryorder = "array", categoryarray = plot_df$CellType),
+                   yaxis = list(title = "Proportion"))
+          
+          return(p)
         }
-        
-        for (i in 1:ncol(pseudo_prop)) {
-          plot_df[[paste0("PseudoBulk_", colnames(pseudo_prop)[i])]] <- pseudo_prop[, i]
+      } else {
+        if (!is.null(values$retina_results$bulk.prop)) {
+          plot_data <- values$retina_results$bulk.prop[, input$retinaSampleID, drop = FALSE]
+          
+          plot_df <- data.frame(
+            CellType = rownames(plot_data),
+            Proportion = plot_data[,1],
+            stringsAsFactors = FALSE
+          )
+          
+          plot_df <- plot_df[order(plot_df$Proportion, decreasing = TRUE),]
+          
+          p <- plot_ly(plot_df, x = ~CellType, y = ~Proportion, type = "bar",
+                       marker = list(color = "#3498db")) %>%
+            layout(title = paste0("Bulk Proportion for Sample: ", input$retinaSampleID),
+                   xaxis = list(title = "Cell Types", tickangle = 45, categoryorder = "array", categoryarray = plot_df$CellType),
+                   yaxis = list(title = "Proportion"))
+          
+          return(p)
         }
-        
-        plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
-        
-        n_samples <- length(unique(plot_long$Sample))
-        color_palette <- generateColorPalette(n_samples)
-        
-        p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, 
-                     type = "bar", 
-                     colors = color_palette) %>%
-          layout(title = "Retina Benchmark Comparison",
-                 xaxis = list(title = "Cell Types", tickangle = 45),
-                 yaxis = list(title = "Proportion"),
-                 barmode = "group")
-        
-        return(p)
       }
     }
     
@@ -377,70 +426,116 @@ server <- function(input, output, session) {
   output$hgscPlot <- renderPlotly({
     req(values$hgsc_results)
     
-    if (input$hgscDataset == "Lee Cohort") {
-      plot_data <- values$hgsc_results$cell.type.proportions
-      
-      if (!is.null(plot_data) && ncol(plot_data) > 0 && nrow(plot_data) > 0) {
-        if (ncol(plot_data) > 10) {
-          plot_data <- plot_data[, 1:10]
+    if (input$hgscPlotType == "boxplot") {
+      if (input$hgscDataset == "Lee Cohort") {
+        plot_data <- values$hgsc_results$cell.type.proportions
+        
+        if (!is.null(plot_data) && ncol(plot_data) > 0 && nrow(plot_data) > 0) {
+          if (ncol(plot_data) > 10) {
+            plot_data <- plot_data[, 1:10]
+          }
+          
+          plot_df <- data.frame(
+            CellType = rownames(plot_data),
+            stringsAsFactors = FALSE
+          )
+          
+          for (i in 1:ncol(plot_data)) {
+            plot_df[[colnames(plot_data)[i]]] <- plot_data[, i]
+          }
+          
+          plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
+          
+          n_samples <- length(unique(plot_long$Sample))
+          color_palette <- generateColorPalette(n_samples)
+          
+          p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, 
+                       type = "bar", 
+                       colors = color_palette) %>%
+            layout(title = "HGSC Cell Type Proportions",
+                   xaxis = list(title = "Cell Types", tickangle = 45),
+                   yaxis = list(title = "Proportion"),
+                   barmode = "group")
+          
+          return(p)
         }
-        
-        plot_df <- data.frame(
-          CellType = rownames(plot_data),
-          stringsAsFactors = FALSE
-        )
-        
-        for (i in 1:ncol(plot_data)) {
-          plot_df[[colnames(plot_data)[i]]] <- plot_data[, i]
+      } else {
+        if (!is.null(values$hgsc_results$bulk.prop) && !is.null(values$hgsc_results$pseudobulk.prop)) {
+          bulk_prop <- values$hgsc_results$bulk.prop
+          pseudo_prop <- values$hgsc_results$pseudobulk.prop
+          
+          plot_df <- data.frame(
+            CellType = rownames(bulk_prop),
+            stringsAsFactors = FALSE
+          )
+          
+          for (i in 1:ncol(bulk_prop)) {
+            plot_df[[paste0("Bulk_", colnames(bulk_prop)[i])]] <- bulk_prop[, i]
+          }
+          
+          for (i in 1:ncol(pseudo_prop)) {
+            plot_df[[paste0("PseudoBulk_", colnames(pseudo_prop)[i])]] <- pseudo_prop[, i]
+          }
+          
+          plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
+          
+          n_samples <- length(unique(plot_long$Sample))
+          color_palette <- generateColorPalette(n_samples)
+          
+          p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, 
+                       type = "bar", 
+                       colors = color_palette) %>%
+            layout(title = "HGSC Benchmark Comparison",
+                   xaxis = list(title = "Cell Types", tickangle = 45),
+                   yaxis = list(title = "Proportion"),
+                   barmode = "group")
+          
+          return(p)
         }
-        
-        plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
-        
-        n_samples <- length(unique(plot_long$Sample))
-        color_palette <- generateColorPalette(n_samples)
-        
-        p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, 
-                     type = "bar", 
-                     colors = color_palette) %>%
-          layout(title = "HGSC Cell Type Proportions",
-                 xaxis = list(title = "Cell Types", tickangle = 45),
-                 yaxis = list(title = "Proportion"),
-                 barmode = "group")
-        
-        return(p)
       }
     } else {
-      if (!is.null(values$hgsc_results$bulk.prop) && !is.null(values$hgsc_results$pseudobulk.prop)) {
-        bulk_prop <- values$hgsc_results$bulk.prop
-        pseudo_prop <- values$hgsc_results$pseudobulk.prop
+      req(input$hgscSampleID)
+      
+      if (input$hgscDataset == "Lee Cohort") {
+        plot_data <- values$hgsc_results$cell.type.proportions[, input$hgscSampleID, drop = FALSE]
         
-        plot_df <- data.frame(
-          CellType = rownames(bulk_prop),
-          stringsAsFactors = FALSE
-        )
-        
-        for (i in 1:ncol(bulk_prop)) {
-          plot_df[[paste0("Bulk_", colnames(bulk_prop)[i])]] <- bulk_prop[, i]
+        if (!is.null(plot_data) && ncol(plot_data) > 0 && nrow(plot_data) > 0) {
+          plot_df <- data.frame(
+            CellType = rownames(plot_data),
+            Proportion = plot_data[,1],
+            stringsAsFactors = FALSE
+          )
+          
+          plot_df <- plot_df[order(plot_df$Proportion, decreasing = TRUE),]
+          
+          p <- plot_ly(plot_df, x = ~CellType, y = ~Proportion, type = "bar",
+                       marker = list(color = "#FC8D62")) %>%
+            layout(title = paste0("Cell Type Proportions for Sample: ", input$hgscSampleID),
+                   xaxis = list(title = "Cell Types", tickangle = 45, categoryorder = "array", categoryarray = plot_df$CellType),
+                   yaxis = list(title = "Proportion"))
+          
+          return(p)
         }
-        
-        for (i in 1:ncol(pseudo_prop)) {
-          plot_df[[paste0("PseudoBulk_", colnames(pseudo_prop)[i])]] <- pseudo_prop[, i]
+      } else {
+        if (!is.null(values$hgsc_results$bulk.prop)) {
+          plot_data <- values$hgsc_results$bulk.prop[, input$hgscSampleID, drop = FALSE]
+          
+          plot_df <- data.frame(
+            CellType = rownames(plot_data),
+            Proportion = plot_data[,1],
+            stringsAsFactors = FALSE
+          )
+          
+          plot_df <- plot_df[order(plot_df$Proportion, decreasing = TRUE),]
+          
+          p <- plot_ly(plot_df, x = ~CellType, y = ~Proportion, type = "bar",
+                       marker = list(color = "#FC8D62")) %>%
+            layout(title = paste0("Bulk Proportion for Sample: ", input$hgscSampleID),
+                   xaxis = list(title = "Cell Types", tickangle = 45, categoryorder = "array", categoryarray = plot_df$CellType),
+                   yaxis = list(title = "Proportion"))
+          
+          return(p)
         }
-        
-        plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
-        
-        n_samples <- length(unique(plot_long$Sample))
-        color_palette <- generateColorPalette(n_samples)
-        
-        p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, 
-                     type = "bar", 
-                     colors = color_palette) %>%
-          layout(title = "HGSC Benchmark Comparison",
-                 xaxis = list(title = "Cell Types", tickangle = 45),
-                 yaxis = list(title = "Proportion"),
-                 barmode = "group")
-        
-        return(p)
       }
     }
     
@@ -455,32 +550,60 @@ server <- function(input, output, session) {
   output$retinaPredefinedPlot <- renderPlotly({
     req(values$retina_predefined_results)
     
-    plot_data <- values$retina_predefined_results$cell.type.proportions
-    
-    if (!is.null(plot_data) && ncol(plot_data) > 0 && nrow(plot_data) > 0) {
-      if (ncol(plot_data) > 20) {
-        sampled_cols <- sample(1:ncol(plot_data), 20)
-        plot_data <- plot_data[, sampled_cols]
+    if (input$retinaPredefinedPlotType == "boxplot") {
+      plot_data <- values$retina_predefined_results$cell.type.proportions
+      
+      if (!is.null(plot_data) && ncol(plot_data) > 0 && nrow(plot_data) > 0) {
+        if (ncol(plot_data) > 20) {
+          sampled_cols <- sample(1:ncol(plot_data), 20)
+          plot_data <- plot_data[, sampled_cols]
+        }
+        
+        plot_df <- data.frame(
+          CellType = rownames(plot_data),
+          stringsAsFactors = FALSE
+        )
+        
+        for (i in 1:ncol(plot_data)) {
+          plot_df[[colnames(plot_data)[i]]] <- plot_data[, i]
+        }
+        
+        plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
+        
+        n_samples <- length(unique(plot_long$Sample))
+        color_palette <- generateColorPalette(n_samples)
+        
+        p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, type = "bar",
+                     colors = color_palette) %>%
+          layout(title = "Retina Cell Type Proportions in Your Data",
+                 xaxis = list(title = "Cell Types", tickangle = 45),
+                 yaxis = list(title = "Proportion"),
+                 barmode = "group")
+        
+        return(p)
       }
+    } else {
+      req(input$retinaPredefinedSampleID)
       
-      plot_df <- data.frame(
-        CellType = rownames(plot_data),
-        stringsAsFactors = FALSE
-      )
+      plot_data <- values$retina_predefined_results$cell.type.proportions[, input$retinaPredefinedSampleID, drop = FALSE]
       
-      for (i in 1:ncol(plot_data)) {
-        plot_df[[colnames(plot_data)[i]]] <- plot_data[, i]
+      if (!is.null(plot_data) && ncol(plot_data) > 0 && nrow(plot_data) > 0) {
+        plot_df <- data.frame(
+          CellType = rownames(plot_data),
+          Proportion = plot_data[,1],
+          stringsAsFactors = FALSE
+        )
+        
+        plot_df <- plot_df[order(plot_df$Proportion, decreasing = TRUE),]
+        
+        p <- plot_ly(plot_df, x = ~CellType, y = ~Proportion, type = "bar",
+                     marker = list(color = "#66C2A5")) %>%
+          layout(title = paste0("Cell Type Proportions for Sample: ", input$retinaPredefinedSampleID),
+                 xaxis = list(title = "Cell Types", tickangle = 45, categoryorder = "array", categoryarray = plot_df$CellType),
+                 yaxis = list(title = "Proportion"))
+        
+        return(p)
       }
-      
-      plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
-      
-      p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, type = "bar") %>%
-        layout(title = "Retina Cell Type Proportions in Your Data",
-               xaxis = list(title = "Cell Types", tickangle = 45),
-               yaxis = list(title = "Proportion"),
-               barmode = "group")
-      
-      return(p)
     }
     
     plot_ly() %>% 
@@ -492,33 +615,61 @@ server <- function(input, output, session) {
   output$hgscPredefinedPlot <- renderPlotly({
     req(values$hgsc_predefined_results)
     
-    plot_data <- values$hgsc_predefined_results$cell.type.proportions
-    
-    if (!is.null(plot_data) && ncol(plot_data) > 0 && nrow(plot_data) > 0) {
-      if (ncol(plot_data) > 20) {
-        set.seed(123) 
-        sampled_cols <- sample(1:ncol(plot_data), 20)
-        plot_data <- plot_data[, sampled_cols]
+    if (input$hgscPredefinedPlotType == "boxplot") {
+      plot_data <- values$hgsc_predefined_results$cell.type.proportions
+      
+      if (!is.null(plot_data) && ncol(plot_data) > 0 && nrow(plot_data) > 0) {
+        if (ncol(plot_data) > 20) {
+          set.seed(123) 
+          sampled_cols <- sample(1:ncol(plot_data), 20)
+          plot_data <- plot_data[, sampled_cols]
+        }
+        
+        plot_df <- data.frame(
+          CellType = rownames(plot_data),
+          stringsAsFactors = FALSE
+        )
+        
+        for (i in 1:ncol(plot_data)) {
+          plot_df[[colnames(plot_data)[i]]] <- plot_data[, i]
+        }
+        
+        plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
+        
+        n_samples <- length(unique(plot_long$Sample))
+        color_palette <- generateColorPalette(n_samples)
+        
+        p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, type = "bar",
+                     colors = color_palette) %>%
+          layout(title = "HGSC Cell Type Proportions in Your Data",
+                 xaxis = list(title = "Cell Types", tickangle = 45),
+                 yaxis = list(title = "Proportion"),
+                 barmode = "group")
+        
+        return(p)
       }
+    } else {
+      req(input$hgscPredefinedSampleID)
       
-      plot_df <- data.frame(
-        CellType = rownames(plot_data),
-        stringsAsFactors = FALSE
-      )
+      plot_data <- values$hgsc_predefined_results$cell.type.proportions[, input$hgscPredefinedSampleID, drop = FALSE]
       
-      for (i in 1:ncol(plot_data)) {
-        plot_df[[colnames(plot_data)[i]]] <- plot_data[, i]
+      if (!is.null(plot_data) && ncol(plot_data) > 0 && nrow(plot_data) > 0) {
+        plot_df <- data.frame(
+          CellType = rownames(plot_data),
+          Proportion = plot_data[,1],
+          stringsAsFactors = FALSE
+        )
+        
+        plot_df <- plot_df[order(plot_df$Proportion, decreasing = TRUE),]
+        
+        p <- plot_ly(plot_df, x = ~CellType, y = ~Proportion, type = "bar",
+                     marker = list(color = "#FC8D62")) %>%
+          layout(title = paste0("Cell Type Proportions for Sample: ", input$hgscPredefinedSampleID),
+                 xaxis = list(title = "Cell Types", tickangle = 45, categoryorder = "array", categoryarray = plot_df$CellType),
+                 yaxis = list(title = "Proportion"))
+        
+        return(p)
       }
-      
-      plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
-      
-      p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, type = "bar") %>%
-        layout(title = "HGSC Cell Type Proportions in Your Data",
-               xaxis = list(title = "Cell Types", tickangle = 45),
-               yaxis = list(title = "Proportion"),
-               barmode = "group")
-      
-      return(p)
     }
     
     plot_ly() %>% 
@@ -932,59 +1083,109 @@ server <- function(input, output, session) {
   output$customPlot <- renderPlotly({
     req(values$custom_results)
     
-    if (!is.null(values$custom_results$cell.type.proportions)) {
-      plot_data <- values$custom_results$cell.type.proportions
-      
-      if (ncol(plot_data) > 20) {
-        set.seed(123)
-        sampled_cols <- sample(1:ncol(plot_data), 20)
-        plot_data <- plot_data[, sampled_cols]
+    if (input$customPlotType == "boxplot") {
+      if (!is.null(values$custom_results$cell.type.proportions)) {
+        plot_data <- values$custom_results$cell.type.proportions
+        
+        if (ncol(plot_data) > 20) {
+          set.seed(123)
+          sampled_cols <- sample(1:ncol(plot_data), 20)
+          plot_data <- plot_data[, sampled_cols]
+        }
+        
+        plot_df <- data.frame(
+          CellType = rownames(plot_data),
+          stringsAsFactors = FALSE
+        )
+        
+        for (i in 1:ncol(plot_data)) {
+          plot_df[[colnames(plot_data)[i]]] <- plot_data[, i]
+        }
+        
+        plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
+        
+        n_samples <- length(unique(plot_long$Sample))
+        color_palette <- generateColorPalette(n_samples)
+        
+        p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, type = "bar",
+                     colors = color_palette) %>%
+          layout(title = "Cell Type Proportions in Target Data",
+                 xaxis = list(title = "Cell Types", tickangle = 45),
+                 yaxis = list(title = "Proportion"),
+                 barmode = "group")
+        
+        return(p)
+      } else if (!is.null(values$custom_results$bulk.prop) && !is.null(values$custom_results$pseudobulk.prop)) {
+        bulk_prop <- values$custom_results$bulk.prop
+        pseudo_prop <- values$custom_results$pseudobulk.prop
+        
+        plot_df <- data.frame(
+          CellType = rownames(bulk_prop),
+          stringsAsFactors = FALSE
+        )
+        
+        for (i in 1:ncol(bulk_prop)) {
+          plot_df[[paste0("Bulk_", colnames(bulk_prop)[i])]] <- bulk_prop[, i]
+        }
+        
+        for (i in 1:ncol(pseudo_prop)) {
+          plot_df[[paste0("PseudoBulk_", colnames(pseudo_prop)[i])]] <- pseudo_prop[, i]
+        }
+        
+        plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
+        
+        n_samples <- length(unique(plot_long$Sample))
+        color_palette <- generateColorPalette(n_samples)
+        
+        p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, type = "bar",
+                     colors = color_palette) %>%
+          layout(title = "Benchmark Results Comparison",
+                 xaxis = list(title = "Cell Types", tickangle = 45),
+                 yaxis = list(title = "Proportion"),
+                 barmode = "group")
+        
+        return(p)
       }
+    } else {
+      req(input$customSampleID)
       
-      plot_df <- data.frame(
-        CellType = rownames(plot_data),
-        stringsAsFactors = FALSE
-      )
-      
-      for (i in 1:ncol(plot_data)) {
-        plot_df[[colnames(plot_data)[i]]] <- plot_data[, i]
+      if (!is.null(values$custom_results$cell.type.proportions)) {
+        plot_data <- values$custom_results$cell.type.proportions[, input$customSampleID, drop = FALSE]
+        
+        plot_df <- data.frame(
+          CellType = rownames(plot_data),
+          Proportion = plot_data[,1],
+          stringsAsFactors = FALSE
+        )
+        
+        plot_df <- plot_df[order(plot_df$Proportion, decreasing = TRUE),]
+        
+        p <- plot_ly(plot_df, x = ~CellType, y = ~Proportion, type = "bar",
+                     marker = list(color = "#8DA0CB")) %>%
+          layout(title = paste0("Cell Type Proportions for Sample: ", input$customSampleID),
+                 xaxis = list(title = "Cell Types", tickangle = 45, categoryorder = "array", categoryarray = plot_df$CellType),
+                 yaxis = list(title = "Proportion"))
+        
+        return(p)
+      } else if (!is.null(values$custom_results$bulk.prop)) {
+        plot_data <- values$custom_results$bulk.prop[, input$customSampleID, drop = FALSE]
+        
+        plot_df <- data.frame(
+          CellType = rownames(plot_data),
+          Proportion = plot_data[,1],
+          stringsAsFactors = FALSE
+        )
+        
+        plot_df <- plot_df[order(plot_df$Proportion, decreasing = TRUE),]
+        
+        p <- plot_ly(plot_df, x = ~CellType, y = ~Proportion, type = "bar",
+                     marker = list(color = "#8DA0CB")) %>%
+          layout(title = paste0("Bulk Proportion for Sample: ", input$customSampleID),
+                 xaxis = list(title = "Cell Types", tickangle = 45, categoryorder = "array", categoryarray = plot_df$CellType),
+                 yaxis = list(title = "Proportion"))
+        
+        return(p)
       }
-      
-      plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
-      
-      p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, type = "bar") %>%
-        layout(title = "Cell Type Proportions in Target Data",
-               xaxis = list(title = "Cell Types", tickangle = 45),
-               yaxis = list(title = "Proportion"),
-               barmode = "group")
-      
-      return(p)
-    } else if (!is.null(values$custom_results$bulk.prop) && !is.null(values$custom_results$pseudobulk.prop)) {
-      bulk_prop <- values$custom_results$bulk.prop
-      pseudo_prop <- values$custom_results$pseudobulk.prop
-      
-      plot_df <- data.frame(
-        CellType = rownames(bulk_prop),
-        stringsAsFactors = FALSE
-      )
-      
-      for (i in 1:ncol(bulk_prop)) {
-        plot_df[[paste0("Bulk_", colnames(bulk_prop)[i])]] <- bulk_prop[, i]
-      }
-      
-      for (i in 1:ncol(pseudo_prop)) {
-        plot_df[[paste0("PseudoBulk_", colnames(pseudo_prop)[i])]] <- pseudo_prop[, i]
-      }
-      
-      plot_long <- tidyr::gather(plot_df, "Sample", "Proportion", -CellType)
-      
-      p <- plot_ly(plot_long, x = ~CellType, y = ~Proportion, color = ~Sample, type = "bar") %>%
-        layout(title = "Benchmark Results Comparison",
-               xaxis = list(title = "Cell Types", tickangle = 45),
-               yaxis = list(title = "Proportion"),
-               barmode = "group")
-      
-      return(p)
     }
     
     plot_ly() %>% 
@@ -1093,5 +1294,68 @@ server <- function(input, output, session) {
         p(values$error_message)
       )
     }
+  })
+  
+  # Update sample choices for retina analysis
+  observe({
+    req(values$retina_results)
+    
+    if (input$retinaDataset == "AMD Cohort") {
+      sample_ids <- colnames(values$retina_results$cell.type.proportions)
+    } else {
+      if (!is.null(values$retina_results$bulk.prop)) {
+        sample_ids <- colnames(values$retina_results$bulk.prop)
+      } else {
+        sample_ids <- character(0)
+      }
+    }
+    
+    updateSelectInput(session, "retinaSampleID", choices = sample_ids)
+  })
+  
+  # Update sample choices for HGSC analysis
+  observe({
+    req(values$hgsc_results)
+    
+    if (input$hgscDataset == "Lee Cohort") {
+      sample_ids <- colnames(values$hgsc_results$cell.type.proportions)
+    } else {
+      if (!is.null(values$hgsc_results$bulk.prop)) {
+        sample_ids <- colnames(values$hgsc_results$bulk.prop)
+      } else {
+        sample_ids <- character(0)
+      }
+    }
+    
+    updateSelectInput(session, "hgscSampleID", choices = sample_ids)
+  })
+  
+  # Update sample choices for retina predefined analysis
+  observe({
+    req(values$retina_predefined_results)
+    sample_ids <- colnames(values$retina_predefined_results$cell.type.proportions)
+    updateSelectInput(session, "retinaPredefinedSampleID", choices = sample_ids)
+  })
+  
+  # Update sample choices for HGSC predefined analysis
+  observe({
+    req(values$hgsc_predefined_results)
+    sample_ids <- colnames(values$hgsc_predefined_results$cell.type.proportions)
+    updateSelectInput(session, "hgscPredefinedSampleID", choices = sample_ids)
+  })
+  
+  # Update sample choices for custom analysis
+  observe({
+    req(values$custom_results)
+    
+    if (!is.null(values$custom_results$cell.type.proportions)) {
+      sample_ids <- colnames(values$custom_results$cell.type.proportions)
+    } else if (!is.null(values$custom_results$bulk.prop)) {
+      sample_ids <- colnames(values$custom_results$bulk.prop)
+    } else {
+      sample_ids <- character(0)
+    }
+    
+    updateSelectInput(session, "customSampleID", choices = sample_ids)
   })
 }
