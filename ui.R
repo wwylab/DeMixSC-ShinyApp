@@ -212,21 +212,7 @@ ui <- fluidPage(
                                 
                                 tabsetPanel(
                                   tabPanel("Chart",
-                                           fluidRow(
-                                             column(12,
-                                                    selectInput("retinaPlotType", "Plot Type:",
-                                                                choices = c("Boxplot Summary" = "boxplot", 
-                                                                            "Individual Sample" = "sample"),
-                                                                selected = "boxplot")
-                                             ),
-                                             column(12, 
-                                                    conditionalPanel(
-                                                      condition = "input.retinaPlotType == 'sample'",
-                                                      selectInput("retinaSampleID", "Select Sample:", choices = NULL)
-                                                    )
-                                             ),
-                                             column(12, plotlyOutput("retinaPlot", height = "500px"))
-                                           )
+                                           plotlyOutput("retinaPlot", height = "500px")
                                   ),
                                   tabPanel("Table",
                                            DTOutput("retinaTable")
@@ -304,21 +290,7 @@ ui <- fluidPage(
                                 
                                 tabsetPanel(
                                   tabPanel("Chart",
-                                           fluidRow(
-                                             column(12,
-                                                    selectInput("hgscPlotType", "Plot Type:",
-                                                                choices = c("Boxplot Summary" = "boxplot", 
-                                                                            "Individual Sample" = "sample"),
-                                                                selected = "boxplot")
-                                             ),
-                                             column(12, 
-                                                    conditionalPanel(
-                                                      condition = "input.hgscPlotType == 'sample'",
-                                                      selectInput("hgscSampleID", "Select Sample:", choices = NULL)
-                                                    )
-                                             ),
-                                             column(12, plotlyOutput("hgscPlot", height = "500px"))
-                                           )
+                                           plotlyOutput("hgscPlot", height = "500px")
                                   ),
                                   tabPanel("Table",
                                            DTOutput("hgscTable")
@@ -369,7 +341,7 @@ ui <- fluidPage(
                             width = 3,
                             div(class = "param-box",
                                 h4("Retina Analysis"),
-                        
+                                
                                 fileInput("retinaTargetFile", "Upload Target Bulk RNA-seq (CSV):", 
                                           accept = c(".csv", ".txt")),
                                 
@@ -402,21 +374,7 @@ ui <- fluidPage(
                                 
                                 tabsetPanel(
                                   tabPanel("Chart",
-                                           fluidRow(
-                                             column(12,
-                                                    selectInput("retinaPredefinedPlotType", "Plot Type:",
-                                                                choices = c("Boxplot Summary" = "boxplot", 
-                                                                            "Individual Sample" = "sample"),
-                                                                selected = "boxplot")
-                                             ),
-                                             column(12, 
-                                                    conditionalPanel(
-                                                      condition = "input.retinaPredefinedPlotType == 'sample'",
-                                                      selectInput("retinaPredefinedSampleID", "Select Sample:", choices = NULL)
-                                                    )
-                                             ),
-                                             column(12, plotlyOutput("retinaPredefinedPlot", height = "500px"))
-                                           )
+                                           plotlyOutput("retinaPredefinedPlot", height = "500px")
                                   ),
                                   tabPanel("Table",
                                            DTOutput("retinaPredefinedTable")
@@ -503,21 +461,7 @@ ui <- fluidPage(
                                 
                                 tabsetPanel(
                                   tabPanel("Chart",
-                                           fluidRow(
-                                             column(12,
-                                                    selectInput("hgscPredefinedPlotType", "Plot Type:",
-                                                                choices = c("Boxplot Summary" = "boxplot", 
-                                                                            "Individual Sample" = "sample"),
-                                                                selected = "boxplot")
-                                             ),
-                                             column(12, 
-                                                    conditionalPanel(
-                                                      condition = "input.hgscPredefinedPlotType == 'sample'",
-                                                      selectInput("hgscPredefinedSampleID", "Select Sample:", choices = NULL)
-                                                    )
-                                             ),
-                                             column(12, plotlyOutput("hgscPredefinedPlot", height = "500px"))
-                                           )
+                                           plotlyOutput("hgscPredefinedPlot", height = "500px")
                                   ),
                                   tabPanel("Table",
                                            DTOutput("hgscPredefinedTable")
@@ -618,21 +562,7 @@ ui <- fluidPage(
                      
                      tabsetPanel(
                        tabPanel("Chart",
-                                fluidRow(
-                                  column(12,
-                                         selectInput("customPlotType", "Plot Type:",
-                                                     choices = c("Boxplot Summary" = "boxplot", 
-                                                                 "Individual Sample" = "sample"),
-                                                     selected = "boxplot")
-                                  ),
-                                  column(12, 
-                                         conditionalPanel(
-                                           condition = "input.customPlotType == 'sample'",
-                                           selectInput("customSampleID", "Select Sample:", choices = NULL)
-                                         )
-                                  ),
-                                  column(12, plotlyOutput("customPlot", height = "500px"))
-                                )
+                                plotlyOutput("customPlot", height = "500px")
                        ),
                        tabPanel("Table",
                                 DTOutput("customTable")
